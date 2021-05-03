@@ -6,7 +6,7 @@ from BtcHistoricalData import MarketData
 from gym.spaces.discrete import Discrete
 from gym.spaces.box import Box
 
-class CustomEnv(gym.Env):
+class FinanceBtcUsdtEnv(gym.Env):
     def __init__(self):
         self.pygame = MarketData()
         #self.action_space = Discrete(22) se azione definisce quanto investire e quanto vendere

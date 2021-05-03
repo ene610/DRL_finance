@@ -129,6 +129,7 @@ class MarketData():
         # The most current closing price plotted 22 time periods behind (optional)
         df['chikou_span'] = close_prices.shift(-22)  # 22 according to investopedia
         df = df.iloc[52:]
+        #TODO price non c'è
         df = df.drop(columns=['high', 'low', 'close', 'price', 'Volume BTC'])
         return df
 
