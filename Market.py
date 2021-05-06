@@ -1,3 +1,4 @@
+import pandas
 import pandas as pd
 import numpy as np
 import math
@@ -15,6 +16,8 @@ class MarketData():
         self.obs_size = 28
         self.oclhv = self.init_upload()
 
+        #print(self.oclhv.loc[1599858480000])
+
         self.oclhv_indicators = Indicators.sma_indicator(self.oclhv)
         self.oclhv_indicators = Indicators.macd_indicator(self.oclhv_indicators)
         self.oclhv_indicators = Indicators.atr_indicator(self.oclhv_indicators)
@@ -25,18 +28,17 @@ class MarketData():
         self.oclhv_indicators = Indicators.vhf_indicator(self.oclhv_indicators)
         self.oclhv_indicators = Indicators.trix_indicator(self.oclhv_indicators)
         self.oclhv_indicators = Indicators.rocv_indicator(self.oclhv_indicators)
-        print(self.oclhv_indicators.head(5))
         self.close = self.oclhv_indicators['close']
         self.oclhv_indicators = self.oclhv_indicators.drop(columns=['high', 'close', 'low', 'volume', 'open'])
         self.oclhv_indicators = self.oclhv_indicators.dropna()
         # Solo le candele interessanti per l'osservazione
         #self.market = self.oclhv_indicators[:28]
-        self.market = []
+        self.market = pandas.DataFrame.empty
         # Se vendessi adesso avresti questa percentuale di guadagno
         # self.indicators['if_sell'] = -1
         # numero di contanti disponibili ma potrebbe tranquillamente esser la percentuale di monete in suo possesso
         # TODO leva balance
-        self.index = 0
+        self.index = 1599858480000
         self.countdown = 60
         self.invalid_action = False
         self.last_action_taken = 0
@@ -56,7 +58,8 @@ class MarketData():
         if action == 1:
             if self.double_open_position == False:
                 if self.open_position == False:
-                    self.open_position_price = self.close.iloc[self.index]['close']
+                    #print(self.close.index)
+                    self.open_position_price = self.close.loc[self.index]
                     self.open_position = True
                 else:
                     self.double_open_position = True
@@ -68,13 +71,13 @@ class MarketData():
             pass
 
         # self.steps_rewards.append(imemdiate_reward)
-        self.index += 1
+        self.index += 60000
         self.countdown -= 1
 
     def observe(self):
 
         # max 28
-        self.market = self.oclhv_indicators.iloc[self.index: self.obs_size + self.index]
+        self.market = self.oclhv_indicators.iloc[self.index: (self.obs_size * 60000) + self.index]
         flatten_indicators = self.market.to_numpy().flatten()
         return flatten_indicators
 
@@ -94,7 +97,6 @@ class MarketData():
         path = "Binance_BTCUSDT_minute.csv"
         df = pd.read_csv(path, skiprows=1)
         df = df.rename(columns={'Volume USDT': 'volume'})
-        print(df.columns)
         df = df.iloc[::-1]
         df = df.set_index("unix")
         df = df.drop(columns=['date', 'symbol', 'Volume BTC'])
@@ -124,7 +126,8 @@ class MarketData():
         # vendere = profitto totale 100% -100%
 
         # TODO controlla
-        immediate_reward = self.open_position_price - self.market.iloc[-1, :]['close']
+        #immediate_reward = self.open_position_price - self.market.iloc[-1, :]['close']
+        immediate_reward = self.open_position_price - self.close.loc[self.index]
 
         # countdown 2
         # countdown 1

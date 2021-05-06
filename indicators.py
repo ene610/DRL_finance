@@ -219,7 +219,6 @@ class Indicators:
         Returns:
             pandas.DataFrame: new pandas dataframe adding ROCV as new column, preserving the columns which already exists\n
         """
-        print(df.columns)
         df["prev_volume"] = df["volume"].shift(time_period)
         df["ROCV"] = (df["volume"] - df["prev_volume"]
                       ) / df["prev_volume"] * 100
