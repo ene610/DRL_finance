@@ -59,7 +59,7 @@ class Indicators:
         df = df.drop(["close_prev", "TR"], axis=1)
         return df
 
-
+    @staticmethod
     def ema_indicator(df: pd.DataFrame, time_period: int = 21):
         """
         Get The expected indicator in a pandas dataframe.
@@ -74,7 +74,7 @@ class Indicators:
 
 
     @staticmethod
-    def kc_indicator(self, df: pd.DataFrame, time_period: int = 20, atr_time_period: int = 14, atr_multiplier: int = 2):
+    def kc_indicator(df: pd.DataFrame, time_period: int = 20, atr_time_period: int = 14, atr_multiplier: int = 2):
         """
         Get The expected indicator in a pandas dataframe.
         Args:
@@ -87,7 +87,7 @@ class Indicators:
         """
 
         df["kc_middle"] = df["close"].ewm(span=time_period).mean()
-        df = self.atr_indicator(df, atr_time_period)
+        df = Indicators.atr_indicator(df, atr_time_period)
 
         df["kc_upper"] = df["kc_middle"] + atr_multiplier * df["ATR"]
         df["kc_lower"] = df["kc_middle"] - atr_multiplier * df["ATR"]
@@ -202,7 +202,7 @@ class Indicators:
             return df
 
     @staticmethod
-    def ROCV_indicator(self, df: pd.DataFrame, time_period: int = 12):
+    def rocv_indicator(df: pd.DataFrame, time_period: int = 12):
         """
            ROCV -> Rate of Change Volume
            ROCV indicator is used to identify whether the price movement is confirmed by trading volume.
@@ -219,10 +219,11 @@ class Indicators:
         Returns:
             pandas.DataFrame: new pandas dataframe adding ROCV as new column, preserving the columns which already exists\n
         """
-
+        print(df.columns)
         df["prev_volume"] = df["volume"].shift(time_period)
         df["ROCV"] = (df["volume"] - df["prev_volume"]
                       ) / df["prev_volume"] * 100
         df = df.drop(["prev_volume"], axis=1)
+
 
         return df

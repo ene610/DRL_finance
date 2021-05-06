@@ -2,7 +2,7 @@
 import gym
 from gym import spaces
 import numpy as np
-from BtcHistoricalData import MarketData
+from Market import MarketData
 from gym.spaces.discrete import Discrete
 from gym.spaces.box import Box
 
