@@ -63,7 +63,6 @@ class MarketData():
         if action == 0:
             pass
 
-        #TODO cambia loc in iloc
         if action == 1:
             if self.double_open_position == False:
                 if self.open_position == False:
