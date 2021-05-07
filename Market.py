@@ -23,6 +23,10 @@ class MarketData():
         self.oclhv_indicators = Indicators.atr_indicator(self.oclhv_indicators)
         self.oclhv_indicators = Indicators.ema_indicator(self.oclhv_indicators)
         self.oclhv_indicators = Indicators.kc_indicator(self.oclhv_indicators)
+
+        #SettingWithCopyWarning
+        #decomenta per risolvere questo errore (https://stackoverflow.com/questions/20625582/how-to-deal-with-settingwithcopywarning-in-pandas)
+        pd.options.mode.chained_assignment = None
         self.oclhv_indicators = Indicators.rsi_indicator(self.oclhv_indicators)
         self.oclhv_indicators = Indicators.mom_indicator(self.oclhv_indicators)
         self.oclhv_indicators = Indicators.vhf_indicator(self.oclhv_indicators)
@@ -31,14 +35,18 @@ class MarketData():
         self.close = self.oclhv_indicators['close']
         self.oclhv_indicators = self.oclhv_indicators.drop(columns=['high', 'close', 'low', 'volume', 'open'])
         self.oclhv_indicators = self.oclhv_indicators.dropna()
+
+        #print(self.oclhv_indicators.head(5))
+
         # Solo le candele interessanti per l'osservazione
-        #self.market = self.oclhv_indicators[:28]
+        # self.market = self.oclhv_indicators[:28]
         self.market = pandas.DataFrame.empty
         # Se vendessi adesso avresti questa percentuale di guadagno
         # self.indicators['if_sell'] = -1
         # numero di contanti disponibili ma potrebbe tranquillamente esser la percentuale di monete in suo possesso
-        # TODO leva balance
-        self.index = 1599858480000
+
+        #self.index = 1599858480000
+        self.index = 0
         self.countdown = 60
         self.invalid_action = False
         self.last_action_taken = 0
@@ -55,11 +63,12 @@ class MarketData():
         if action == 0:
             pass
 
+        #TODO cambia loc in iloc
         if action == 1:
             if self.double_open_position == False:
                 if self.open_position == False:
                     #print(self.close.index)
-                    self.open_position_price = self.close.loc[self.index]
+                    self.open_position_price = self.close.iloc[self.index]
                     self.open_position = True
                 else:
                     self.double_open_position = True
@@ -71,13 +80,17 @@ class MarketData():
             pass
 
         # self.steps_rewards.append(imemdiate_reward)
-        self.index += 60000
+        #self.index += 60000
+        self.index += 1
         self.countdown -= 1
 
     def observe(self):
-
+        #TODO index cambioto
         # max 28
-        self.market = self.oclhv_indicators.iloc[self.index: (self.obs_size * 60000) + self.index]
+        #print(self.market.shape)
+        #self.market = self.oclhv_indicators.iloc[self.index: (self.obs_size * 60000) + self.index]
+        self.market = self.oclhv_indicators.iloc[self.index:self.index + self.obs_size]
+        print(self.market.shape)
         flatten_indicators = self.market.to_numpy().flatten()
         return flatten_indicators
 
@@ -125,9 +138,9 @@ class MarketData():
         # holda = profitto se hai comrpato +-1.5, sennò 0
         # vendere = profitto totale 100% -100%
 
-        # TODO controlla
         #immediate_reward = self.open_position_price - self.market.iloc[-1, :]['close']
-        immediate_reward = self.open_position_price - self.close.loc[self.index]
+
+        immediate_reward = self.open_position_price - self.close.iloc[self.index]
 
         # countdown 2
         # countdown 1

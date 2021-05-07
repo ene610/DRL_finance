@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 
 class Indicators:
+
     @staticmethod
     def sma_indicator(df: pd.DataFrame, time_period: int = 21):
         """

@@ -11,8 +11,9 @@ def print_hi(name):
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
     env = FinanceBtcUsdtEnv()
-    env.observe()
-    env.step(1)
+    obs = env.reset()
+    print(obs.size)
+    #env.step(1)
     #print(env.observe())
     #print(env.step(1))
 
