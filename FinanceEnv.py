@@ -14,7 +14,7 @@ class FinanceBtcUsdtEnv(gym.Env):
         #https://github.com/openai/gym/blob/master/gym/spaces/box.py
         # * Independent bound for each dimension::
         #>>> Box(low=np.array([-1.0, -2.0]), high=np.array([2.0, 4.0]), dtype=np.float32)
-        self.observation_space = Box(low=np.array([np.finfo(np.float64).min]*392), high=np.array([np.finfo(np.float64).max]*392), dtype=np.float32)
+        self.observation_space = Box(low=np.array([np.finfo(np.float64).min]*392), high=np.array([np.finfo(np.float64).max]*392), dtype=np.float64)
 
 
     def reset(self):

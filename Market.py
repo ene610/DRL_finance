@@ -90,9 +90,10 @@ class MarketData():
         #print(self.market.shape)
         #self.market = self.oclhv_indicators.iloc[self.index: (self.obs_size * 60000) + self.index]
         self.market = self.oclhv_indicators.iloc[self.index:self.index + self.obs_size]
-        print(self.market.shape)
+        #print(self.market.shape)
+
         flatten_indicators = self.market.to_numpy().flatten()
-        return flatten_indicators
+        return np.append(flatten_indicators, int(self.open_position))
 
     def view(self):
         print("-" * 10)
@@ -151,23 +152,23 @@ class MarketData():
             # non si può comprare se ho gia una transizione
             if self.double_open_position:
                 self.invalid_action = True
-                return -10
+                return -100
             else:
                 self.open_position = True
                 return immediate_reward
 
         # Se stai cercando di comprare all'ultimo step dell'episodio sei punito
         if self.last_action_taken == 1 and self.countdown == 0:
-            return -10
+            return -100
 
         # Se non hai fatto trade nell'episodio sei punito
         if self.countdown == 0 and self.holding_rewards.size == 0:
-            return -10
+            return -100
 
         if self.last_action_taken == 2 or self.countdown == 0:
             if not self.open_position:
                 self.invalid_action = True
-                reward = -10
+                reward = -100
             else:
                 self.open_position = False
                 self.double_open_position = False
