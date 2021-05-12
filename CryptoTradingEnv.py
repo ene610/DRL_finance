@@ -126,16 +126,18 @@ class CryptoTradingEnv(gym.Env):
             return False, -1
 
         # Da qui in poi ho solo azioni valide:
+
+        if action == Actions.HoldPosition and self._position == Positions.Long:
+            current_price = self.prices[self._current_tick]
+            open_position_price = self.prices[self._open_position_tick]
+            price_diff = current_price - open_position_price
+            # step_reward = price_diff / current_price
+            step_reward += price_diff
+
         trade = False
         if ((action == Actions.OpenPosition.value and self._position == Positions.Free) or
             (action == Actions.ClosePosition.value and self._position == Positions.Long)):
             trade = True
-
-        if action == Actions.HoldPosition and self._position == Positions.Long:
-            current_price = self.prices[self._current_tick]
-            last_trade_price = self.prices[self._open_position_tick]
-            price_diff = current_price - last_trade_price
-            step_reward += price_diff
 
         if trade:
             if action == Actions.OpenPosition.value:
@@ -147,7 +149,7 @@ class CryptoTradingEnv(gym.Env):
                 current_price = self.prices[self._current_tick]
                 last_trade_price = self.prices[self._open_position_tick]
                 price_diff = current_price - last_trade_price
-                step_reward += price_diff
+                step_reward = price_diff
 
         return True, step_reward
 
@@ -156,11 +158,6 @@ class CryptoTradingEnv(gym.Env):
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
             self._total_profit += current_price - open_position_price
-
-        #if action == Actions.HoldPosition.value and self._position == Positions.Long:
-        #    current_price = self.prices[self._current_tick]
-        #    open_position_price = self.prices[self._open_position_tick]
-        #    self._total_profit = current_price - open_position_price
 
     def _get_observation(self):
         return self.signal_features[(self._current_tick - self.window_size):self._current_tick]
@@ -176,7 +173,7 @@ class CryptoTradingEnv(gym.Env):
         def _plot_position(position, tick):
             color = None
             if position == Positions.Free:
-                color = 'red'
+                color = 'gray'
             elif position == Positions.Long:
                 color = 'green'
             if color:
