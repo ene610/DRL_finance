@@ -152,7 +152,7 @@ class CryptoTradingEnv(gym.Env):
             step_reward += price_diff
 
         # (Long, ClosePosition) -> Free
-        elif action == Actions.ClosePosition.value and self._position == Positions.Free:
+        elif action == Actions.ClosePosition.value and self._position == Positions.Long:
             new_position = self._position.opposite()
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
