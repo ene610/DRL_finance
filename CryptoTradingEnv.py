@@ -46,6 +46,7 @@ class CryptoTradingEnv(gym.Env):
         self.observation_space = spaces.Box(low=-np.inf, high=np.inf, shape=self.shape, dtype=np.float32)
 
         # episode
+        self._balance = 10000.
         self._start_tick = self.window_size
         self._end_tick = len(self.prices) - 1
         self._done = None
@@ -55,7 +56,8 @@ class CryptoTradingEnv(gym.Env):
         self._position = Positions.Free
         self._position_history = None
         self._total_reward = 0.
-        self._total_profit = 1.
+        self._total_profit = 0.
+        self._balance = 10000
         self._first_rendering = None
         self.history = None
 
@@ -64,6 +66,7 @@ class CryptoTradingEnv(gym.Env):
         return [seed]
 
     def reset(self):
+        self._balance = 10000.
         self._done = False
         self._current_tick = self._start_tick
         self._open_position_tick = 0
@@ -71,93 +74,103 @@ class CryptoTradingEnv(gym.Env):
         self._position = Positions.Free
         self._position_history = (self.window_size * [0]) + [self._position]
         self._total_reward = 0.
-        self._total_profit = 1.  # unit
+        self._total_profit = 0.  # unit
         self._first_rendering = True
         self.history = {}
         return self._get_observation()
 
     def step(self, action):
+        '''
+        Responsabilità di step():
+            1. calcolare il profit attraverso la funzione di update_profit
+            2. calcolare step_reward, position, open_position_tick tramite la funzione calculate_reward()
+            4. aggiornare la history delle posizioni
+        '''
         self._done = False
         self._current_tick += 1
 
         if self._current_tick == self._end_tick:
             self._done = True
 
-        valid, step_reward = self._calculate_reward(action)
-        self._total_reward += step_reward
-        if valid:
-          self._update_profit(action)
-        else:
-          # Se l'azione non è valida lo costringo ad imparare che non è valida, gli do un reward negativo e fermo l'episodio
-          self._total_reward = -1000
-          self._done = True
-
-        if action == Actions.ClosePosition.value and self._position == Positions.Long:
-            self._position = self._position.opposite()
-
-        if action == Actions.OpenPosition.value and self._position == Positions.Free:
-            self._position = self._position.opposite()
-            self._open_position_tick = self._current_tick
+        self._update_profit(action)
+        # Attenzione! self._position viene cambiata in step_reward quindi update_profit() deve essere chiamato prima
+        step_reward = self._calculate_reward(action)
 
         self._position_history.append(self._position)
         observation = self._get_observation()
         info = dict(
             total_reward = self._total_reward,
             total_profit = self._total_profit,
+            balance = self._balance,
             position = self._position.value
         )
         self._update_history(info)
 
         return observation, step_reward, self._done, info
 
-    def _action_is_invalid(self, action):
-        if self._position == Positions.Free.value and (action == Actions.ClosePosition.value or action == Actions.HoldPosition):
-            return True
-        if self._position == Positions.Long.value and (action == Actions.OpenPosition or action == Actions.DoNothing):
-            return True
-        return False
-
     def _calculate_reward(self, action):
-        step_reward = 0
+        '''
+        Responsabilità di calculate_reward:
+            1. Calcolare il reward
+            2. Aggiornare self._total_reward
+            3. Aggiornare self._position
+            4. Aggiornare self._open_position_tick
 
-        # Controllo di avere una azione valida
-        # Se è una azione invalida, il reward tornato sarà settato negativo dal metodo che richiama questo
-        if self._action_is_invalid(action):
-            return False, -1
+        Logica di reward per azioni LEGITTIME:
+                    - ClosePosition (da Long a Free) = profit di quella posizione
+                    - OpenPosition (da Free a Long) = reward di incentivo per aprire posizione
+                    - HoldPosition (da Long a Long) = profit che verrebbe fatta da quando si è aperta la posizione se si vendesse in quel momento
+                    - DoNothing (da Free a Free) = 0 di reward, non punisco e lo incentivo in nessun modo su questa posizione
 
-        # Da qui in poi ho solo azioni valide:
+        Logica di reward per azioni ILLEGITTIME (tutte le coppie non listate sopra):
+                    - Do un piccolo reward negativo di disincentivo per tutte le azioni illeggitime
+                        ma non faccio cambiare il sistema
 
-        if action == Actions.HoldPosition and self._position == Positions.Long:
+        Funzione di transizione: (Stato, Azione) -> Stato
+
+        :param action:
+        :return:
+        '''
+        step_reward = -1
+        new_position = self._position
+
+        # (Free, DoNothing) -> Free
+        if action == Actions.DoNothing.value and self._position == Positions.Free:
+            step_reward = 0
+
+        # (Free, OpenPosition) -> Long
+        elif action == Actions.OpenPosition.value and self._position == Positions.Free:
+            new_position = self._position.opposite()
+            self._open_position_tick = self._current_tick
+            step_reward = 1
+
+        # (Long, HoldPosition) -> Long
+        elif action == Actions.HoldPosition.value and self._position == Positions.Long:
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
             price_diff = current_price - open_position_price
-            # step_reward = price_diff / current_price
             step_reward += price_diff
 
-        trade = False
-        if ((action == Actions.OpenPosition.value and self._position == Positions.Free) or
-            (action == Actions.ClosePosition.value and self._position == Positions.Long)):
-            trade = True
+        # (Long, ClosePosition) -> Free
+        elif action == Actions.ClosePosition.value and self._position == Positions.Free:
+            new_position = self._position.opposite()
+            current_price = self.prices[self._current_tick]
+            open_position_price = self.prices[self._open_position_tick]
+            price_diff = current_price - open_position_price
+            step_reward += price_diff
 
-        if trade:
-            if action == Actions.OpenPosition.value:
-                # Lo incentivo ad acquistare
-                step_reward = 10
-            elif action == Actions.ClosePosition.value:
-                # Qui ci dovrebbe entrare per forza se è entrato nel primo if ma non nel secondo
-                # Qui sta chiudendo la posizione Long!
-                current_price = self.prices[self._current_tick]
-                last_trade_price = self.prices[self._open_position_tick]
-                price_diff = current_price - last_trade_price
-                step_reward = price_diff
-
-        return True, step_reward
+        self._total_reward += step_reward
+        self._position = new_position
+        return step_reward
 
     def _update_profit(self, action):
         if action == Actions.ClosePosition.value and self._position == Positions.Long:
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
-            self._total_profit += current_price - open_position_price
+            self._balance = (self._balance / open_position_price) * current_price
+            #se total profit inizializzato a 0
+            self._total_profit += self._balance - temp_balance
+
 
     def _get_observation(self):
         return self.signal_features[(self._current_tick - self.window_size):self._current_tick]
@@ -173,7 +186,7 @@ class CryptoTradingEnv(gym.Env):
         def _plot_position(position, tick):
             color = None
             if position == Positions.Free:
-                color = 'gray'
+                color = 'red'
             elif position == Positions.Long:
                 color = 'green'
             if color:
@@ -190,7 +203,8 @@ class CryptoTradingEnv(gym.Env):
 
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
-            "Total Profit: %.6f" % self._total_profit
+            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
+            "Total Balance: %.6f" % self._balance
         )
 
         plt.pause(0.01)
@@ -212,7 +226,8 @@ class CryptoTradingEnv(gym.Env):
 
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
-            "Total Profit: %.6f" % self._total_profit
+            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
+            "Balance: %.6f" % self._balance
         )
 
     def close(self):
