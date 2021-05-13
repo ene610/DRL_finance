@@ -4,6 +4,7 @@ from gym import spaces
 from gym.utils import seeding
 import numpy as np
 import matplotlib.pyplot as plt
+from indicators import Indicators
 
 class Actions(Enum):
     # Mappo sono le azioni legittime nella forma:
@@ -282,13 +283,28 @@ class CryptoTradingEnv(gym.Env):
     def _process_data(self):
         prices = self.df['close'].to_numpy()
 
-        prices[self.frame_bound[0] - self.window_size]  # validate index (TODO: Improve validation)
+        #prices[self.frame_bound[0] - self.window_size]  # validate index (TODO: Improve validation)
         prices = prices[self.frame_bound[0]-self.window_size:self.frame_bound[1]]
 
-        diff = np.insert(np.diff(prices), 0, 0)
-        signal_features = np.column_stack((prices, diff))
+        #diff = np.insert(np.diff(prices), 0, 0)
+        #signal_features = np.column_stack((prices, diff))
 
-        return prices, signal_features
+        signal_features = Indicators.sma_indicator(self.df)
+        signal_features = Indicators.macd_indicator(signal_features)
+        signal_features = Indicators.atr_indicator(signal_features)
+        signal_features = Indicators.ema_indicator(signal_features)
+        signal_features = Indicators.kc_indicator(signal_features)
+
+        signal_features = Indicators.rsi_indicator(signal_features)
+        signal_features = Indicators.mom_indicator(signal_features)
+        signal_features = Indicators.vhf_indicator(signal_features)
+        signal_features = Indicators.trix_indicator(signal_features)
+        signal_features = Indicators.rocv_indicator(signal_features)
+        signal_features = signal_features.drop(columns=['open', 'high', 'low', 'close', 'volume', 'tradecount'])
+        signal_features = signal_features.dropna()
+        signal_features.reset_index(drop=True, inplace=True)
+        print(signal_features.columns)
+        return prices, signal_features.to_numpy()
 
     #############################################################################################################
 
