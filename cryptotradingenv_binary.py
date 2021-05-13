@@ -162,6 +162,8 @@ class CryptoTradingEnv(gym.Env):
 
             np.append(self._holding_price_difference, price_diff)
             step_reward = np.mean(self._holding_price_difference)
+            if np.isnan(step_reward):
+                step_reward = 0
 
         # (Long, ToFree) -> Free
         elif self._position == Positions.Long and action == Actions.ToFree.value:
