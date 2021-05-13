@@ -131,6 +131,7 @@ class CryptoTradingEnv(gym.Env):
         :param action:
         :return:
         '''
+        # è negativo quando fa un'azione invalida?
         step_reward = 0
         new_position = self._position
 
@@ -142,13 +143,28 @@ class CryptoTradingEnv(gym.Env):
         elif action == Actions.OpenPosition.value and self._position == Positions.Free:
             new_position = self._position.opposite()
             self._open_position_tick = self._current_tick
+            # 1 è troppo alto? Ma se metto a 0.95 fa un trade ogni ora
+            # così ne fa uno ogni due tre minuti
             step_reward = 1
+
+        # 0 aperta posizione a 10
+        # holding_rewards = []
+        # 1 prezzo a 12 -> hold 12-10 / 10 = 0.2 = 0.2
+        # 2 prezzo a 15 -> hold 15-10 / 10 => (0.5 +0.2) / 2 = 0.35
+        # 3 prezzo a 13 -> hold 0.3 + 0.5 + 0.2 / 3 = 0.33
+
+        # scendi invece di salire
+        # holding_rewards = []
+        # 4 prezzo a 8 -> hold 8-10 / 10 = -0.2
+        # 5 prezzo a 5 -> hold 5-10/10 = -0.5 -0.2 + 0.3 + 0.5 + 0.2 / 5 = 0.06
+        # 6 prezzoa a 15 -> hold
 
         # (Long, HoldPosition) -> Long
         elif action == Actions.HoldPosition.value and self._position == Positions.Long:
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
             price_diff = current_price - open_position_price
+            # reward = media dei reward ottenuti dall'hodlding?
             step_reward += price_diff
 
         # (Long, ClosePosition) -> Free
@@ -157,6 +173,8 @@ class CryptoTradingEnv(gym.Env):
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
             price_diff = current_price - open_position_price
+            # current_price - open_position_price > 0 ==> step_reawrd = 1
+            # < 0 ==> step_reward = -1
             step_reward += price_diff
 
         self._total_reward += step_reward
