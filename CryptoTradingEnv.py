@@ -131,7 +131,7 @@ class CryptoTradingEnv(gym.Env):
         :param action:
         :return:
         '''
-        step_reward = -1
+        step_reward = 0
         new_position = self._position
 
         # (Free, DoNothing) -> Free
