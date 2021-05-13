@@ -52,6 +52,7 @@ class CryptoTradingEnv(gym.Env):
         self._done = None
         self._current_tick = None
         self._open_position_tick = None
+        self._holding_price_difference = np.zeros(0)
         self._last_trade_tick = None
         self._position = Positions.Free
         self._position_history = None
@@ -77,6 +78,7 @@ class CryptoTradingEnv(gym.Env):
         self._total_profit = 0.  # unit
         self._first_rendering = True
         self.history = {}
+        self._holding_price_difference = np.zeros(0)
         return self._get_observation()
 
     def step(self, action):
@@ -132,7 +134,7 @@ class CryptoTradingEnv(gym.Env):
         :return:
         '''
         # è negativo quando fa un'azione invalida?
-        step_reward = 0
+        step_reward = -0.01
         new_position = self._position
 
         # (Free, DoNothing) -> Free
@@ -145,7 +147,7 @@ class CryptoTradingEnv(gym.Env):
             self._open_position_tick = self._current_tick
             # 1 è troppo alto? Ma se metto a 0.95 fa un trade ogni ora
             # così ne fa uno ogni due tre minuti
-            step_reward = 1
+            step_reward = 0.15
 
         # 0 aperta posizione a 10
         # holding_rewards = []
@@ -163,9 +165,15 @@ class CryptoTradingEnv(gym.Env):
         elif action == Actions.HoldPosition.value and self._position == Positions.Long:
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
-            price_diff = current_price - open_position_price
+            price_diff = (current_price - open_position_price ) / open_position_price
             # reward = media dei reward ottenuti dall'hodlding?
-            step_reward += price_diff
+
+            if self._holding_price_difference.size > 1:
+                if price_diff / price_diff != self._holding_price_difference[0] / self._holding_price_difference[0]:
+                    self._holding_price_difference = np.zeros(0)
+
+            np.append(self._holding_price_difference, price_diff)
+            step_reward = np.mean(self._holding_price_difference)
 
         # (Long, ClosePosition) -> Free
         elif action == Actions.ClosePosition.value and self._position == Positions.Long:
@@ -175,13 +183,27 @@ class CryptoTradingEnv(gym.Env):
             price_diff = current_price - open_position_price
             # current_price - open_position_price > 0 ==> step_reawrd = 1
             # < 0 ==> step_reward = -1
-            step_reward += price_diff
+            # step_reward += price_diff
+            if price_diff >= 0:
+                step_reward = 1
+            else:
+                step_reward = -1
+            self._holding_price_difference = np.zeros(0)
+
 
         self._total_reward += step_reward
         self._position = new_position
         return step_reward
 
     def _update_profit(self, action):
+        '''
+                Responsabilità di update_profit():
+                    1. Aggiornare self._total_profit con il profit reale
+                    2. Aggiornare self._balance con il balance dopo la chiusura della transazione
+                :param action:
+                :return:
+        '''
+        temp_balance = self._balance
         if action == Actions.ClosePosition.value and self._position == Positions.Long:
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
