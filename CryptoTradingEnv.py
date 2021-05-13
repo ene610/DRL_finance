@@ -31,16 +31,17 @@ class CryptoTradingEnv(gym.Env):
 
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, df, frame_bound, window_size):
+    def __init__(self, df, frame_bound, window_size, indicators=None):
         assert df.ndim == 2
         assert len(frame_bound) == 2
-
+        self.indicators_to_use = indicators
         self.seed()
         self.df = df
         self.frame_bound = frame_bound
         self.window_size = window_size
         self.prices, self.signal_features = self._process_data()
         self.shape = (window_size, self.signal_features.shape[1])
+
 
         # spaces
         self.action_space = spaces.Discrete(len(Actions))
@@ -173,7 +174,7 @@ class CryptoTradingEnv(gym.Env):
                 if price_diff / price_diff != self._holding_price_difference[0] / self._holding_price_difference[0]:
                     self._holding_price_difference = np.zeros(0)
 
-            np.append(self._holding_price_difference, price_diff)
+            self._holding_price_difference = np.append(self._holding_price_difference, price_diff)
             step_reward = np.mean(self._holding_price_difference)
 
         # (Long, ClosePosition) -> Free
@@ -303,10 +304,28 @@ class CryptoTradingEnv(gym.Env):
         signal_features = signal_features.drop(columns=['open', 'high', 'low', 'close', 'volume', 'tradecount'])
         signal_features = signal_features.dropna()
         signal_features.reset_index(drop=True, inplace=True)
-        print(signal_features.columns)
+        print(signal_features)
+
+        signal_features = self.filter_indicators()
         return prices, signal_features.to_numpy()
 
     #############################################################################################################
 
     def max_possible_profit(self):  # trade fees are ignored
         raise NotImplementedError
+
+    # ipoteticamente questa funzione può esser sostituita da una serie di if in _process_data
+    # solo che mi pareva una pecionata
+    def filter_indicators(self, signal_features):
+        '''
+                        Responsabilità di filter_indicators():
+                            1. Filtrare le colonne che si vogliono utilizzare come osservazioni
+                                attraverso la differenza tra l'insieme  degli indicatori calcolati
+                                in _process_data e quelli indicati nel init nella variabile self.indicators_to_use
+                        :param signal_features: Dataframe con tutti gli indicatori
+                        :return filtered_signal_feature: Dataframe contente gli indicatori selezionati in init
+        '''
+
+        indicators_column_to_filter = np.setdiff1d(signal_features.columns, self.indicators_to_use, assume_unique=True)
+        filtered_signal_feature = signal_features.drop(columns=indicators_column_to_filter)
+        return filtered_signal_feature
