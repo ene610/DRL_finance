@@ -69,6 +69,7 @@ class CryptoTradingEnv(gym.Env):
         self._balance = 10000
         self._first_rendering = None
         self.history = None
+        self._max_profit_possible = self.maxProfit()
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -293,7 +294,8 @@ class CryptoTradingEnv(gym.Env):
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
             "Total Profit: %.6f" % self._total_profit + ' ~ ' +
             "Balance: %.6f" % self._balance + ' ~ ' +
-            "Invalid Action: %.6f" % self._count_invalid_action
+            "Invalid Action: %.6f" % self._count_invalid_action + ' ~ ' +
+            "Max profit: %.6f" % self._max_profit
         )
 
     def close(self):
@@ -361,7 +363,7 @@ class CryptoTradingEnv(gym.Env):
 
     def maxProfit(self):
 
-        price = self._prices[self.window_size:]
+        price = self.prices[self.window_size:]
         k = len(price) / 2
         n = len(price)
 
@@ -372,6 +374,7 @@ class CryptoTradingEnv(gym.Env):
 
         # Profit is zero for the first
         # day and for zero transactions
+        #TODO non dovrebbe esser moltiplicato per balance?
         for i in range(1, n):
 
             for j in range(1, k + 1):
@@ -383,5 +386,5 @@ class CryptoTradingEnv(gym.Env):
 
                 profit[i][j] = max(profit[i - 1][j], max_so_far)
 
-        print(profit[n - 1][k])
+        return profit[n - 1][k]
 
