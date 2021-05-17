@@ -40,6 +40,7 @@ class CryptoTradingEnv(gym.Env):
         self.frame_bound = frame_bound
         self.window_size = window_size
         self.prices, self.signal_features = self._process_data()
+
         # TODO metti nel init il flag
         self.position_in_observation = True
         if self.position_in_observation:
