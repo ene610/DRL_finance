@@ -29,15 +29,17 @@ class Positions(Enum):
     Short = 2
 
     def switch_position(self, action):
+
         # Switch per la parte long
-        if self == Positions.Free and action == Actions.OpenLongPos:
+        if self == Positions.Free and action == Actions.OpenLongPos.value:
             return Positions.Long
-        if self == Positions.Long and action == Actions.CloseLongPos:
+        if self == Positions.Long and action == Actions.CloseLongPos.value:
             return Positions.Free
+
         # Switch per la parte short
-        if self == Positions.Free and action == Actions.OpenShortPos:
+        if self == Positions.Free and action == Actions.OpenShortPos.value:
             return Positions.Short
-        if self == Positions.Short and action == Actions.CloseShortPos:
+        if self == Positions.Short and action == Actions.CloseShortPos.value:
             return Positions.Free
 
 class CryptoTradingEnv(gym.Env):
@@ -81,7 +83,8 @@ class CryptoTradingEnv(gym.Env):
         self._first_rendering = None
         self.history = None
         #TODO prevedi un flag per attivare questa funzione
-        self._max_profit_possible = self.maxProfit()
+        self._max_profit_possible = self.max_possible_profit()
+        self._profit_in_step = np.zeros(0)
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -102,6 +105,7 @@ class CryptoTradingEnv(gym.Env):
         self.history = {}
         self._holding_price_difference = np.zeros(0)
         self._count_invalid_action = 0
+        self._profit_in_step = [0] * self.windows_size
         return self._get_observation()
 
     def step(self, action):
@@ -121,6 +125,7 @@ class CryptoTradingEnv(gym.Env):
         self._update_profit(action)
         # Attenzione! self._position viene cambiata in step_reward quindi update_profit() deve essere chiamato prima
         step_reward = self._calculate_reward(action)
+
         if self._invalid_action:
             self._current_tick -= 1
         else:
@@ -132,7 +137,6 @@ class CryptoTradingEnv(gym.Env):
             balance=self._balance,
             position=self._position.value
         )
-        self._update_history(info)
 
         return observation, step_reward, self._done, info
 
@@ -168,8 +172,8 @@ class CryptoTradingEnv(gym.Env):
             step_reward = 0
 
         # (Free, OpenPosition) -> Long
-        elif action == Actions.OpenPosition.value and self._position == Positions.Free:
-            new_position = self._position.opposite()
+        elif action == Actions.OpenLongPos.value and self._position == Positions.Free:
+            new_position = self._position.switch_position(action)
             self._open_position_tick = self._current_tick
             # 1 è troppo alto? Ma se metto a 0.95 fa un trade ogni ora
             # così ne fa uno ogni due tre minuti
@@ -188,7 +192,7 @@ class CryptoTradingEnv(gym.Env):
         # 6 prezzoa a 15 -> hold
 
         # (Long, HoldPosition) -> Long
-        elif action == Actions.HoldPosition.value and self._position == Positions.Long:
+        elif action == Actions.HoldLongPos.value and self._position == Positions.Long:
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
             price_diff = (current_price - open_position_price) / open_position_price
@@ -199,24 +203,60 @@ class CryptoTradingEnv(gym.Env):
                     self._holding_price_difference = np.zeros(0)
 
             self._holding_price_difference = np.append(self._holding_price_difference, price_diff)
+            #TODO esplora Nan values
             step_reward = np.mean(self._holding_price_difference)
 
         # (Long, ClosePosition) -> Free
-        elif action == Actions.ClosePosition.value and self._position == Positions.Long:
-            new_position = self._position.opposite()
+        elif action == Actions.CloseLongPos.value and self._position == Positions.Long:
+            new_position = self._position.switch_position(action)
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
-            price_diff = current_price - open_position_price
-            # current_price - open_position_price > 0 ==> step_reawrd = 1
-            # < 0 ==> step_reward = -1
-            # step_reward += price_diff
-            if price_diff >= 0:
+            profit = current_price - open_position_price
+
+            if profit >= 0:
                 step_reward = 1
             else:
                 step_reward = -1
             self._holding_price_difference = np.zeros(0)
+
+        elif action == Actions.OpenShortPos.value and self._position == Positions.Free:
+            new_position = self._position.switch_position(action)
+            self._open_position_tick = self._current_tick
+            step_reward = 0.15
+
+        elif action == Actions.HoldShortPos.value and self._position == Positions.Short:
+            current_price = self.prices[self._current_tick]
+            open_position_price = self.prices[self._open_position_tick]
+            #TODO verifica l'utilità e se fonte di NAN
+            price_diff = -1 * (current_price - open_position_price) / open_position_price
+            # 1: 10 , 2: 11 , 3: 8
+            # -0.1
+            # +0.2
+
+            if self._holding_price_difference.size > 1:
+                #TODO np.sign() ?
+                if price_diff / price_diff != self._holding_price_difference[0] / self._holding_price_difference[0]:
+                    self._holding_price_difference = np.zeros(0)
+
+            self._holding_price_difference = np.append(self._holding_price_difference, price_diff)
+            # TODO esplora Nan values
+            step_reward = np.mean(self._holding_price_difference)
+
+        elif action == Actions.CloseShortPos.value and self._position == Positions.Short:
+            new_position = self._position.switch_position(action)
+            current_price = self.prices[self._current_tick]
+            open_position_price = self.prices[self._open_position_tick]
+
+            profit = open_position_price - current_price
+
+            if profit >= 0:
+                step_reward = 1
+            else:
+                step_reward = -1
+            self._holding_price_difference = np.zeros(0)
+
         else:
-            if self.invalid_action_stop:
+            if self.invalid_action_replay:
                 self.invalid_action = True
                 self._count_invalid_action += 1
 
@@ -250,17 +290,24 @@ class CryptoTradingEnv(gym.Env):
         # 19475 = questo è il prezzo di liquidazione
         # 0.5 BTC
         # compro 1 BTC * 10200
-        ########### QUI ##############
-        quanto_ho_comprato_BTC =
+
+        # Quantità di BTC "venduta" quando è aperta la posizione short
+        # balance = USDT + quantità moneta comprata * il prezzo
+        # 1 Apro la posizione short: mi entra = 0.5 * prezzo_btc --> 100 * 0.5 = 50
+        # 2 Chiudo la posizione short: mi esce = base_asset_quantity * prezzo_btc -->  50.. 0.5 * 200 = 100
+        base_asset_quantity = 0.5
 
         if action == Actions.CloseShortPos.value and self._position == Positions.Short:
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
-            self._balance = 0.5 * current_price
-            self._total_profit += open_position_price - current_price
+            profit = (base_asset_quantity * open_position_price) - (base_asset_quantity * current_price)
+            self._balance += profit
+            self._total_profit += profit
+
+        self._profit_in_step = np.append(self._profit_in_step, self._total_profit)
 
     def _get_observation(self):
-        signal_obs = self.signal_features[(self._current_tick - self.window_size):self._current_tick]
+        signal_obs = self.signal_features[(self._current_tick - self.window_size) : self._current_tick]
         obs = []
 
         if self.position_in_observation:
@@ -271,3 +318,144 @@ class CryptoTradingEnv(gym.Env):
             obs = signal_obs
 
         return obs
+
+    def _get_observation_price_variation_percentage(self):
+        prev_price = None
+        signal_obs = np.zeros(0)
+
+        for price in self.prices[self._current_tick, self._current_tick + self.self.window_size]:
+            if prev_price:
+                price_variation_percentage = (price - prev_price) / prev_price
+                signal_obs = np.append(signal_obs,price_variation_percentage)
+
+            prev_price = price
+
+        if self.position_in_observation:
+            position_obs = [self._position.value] * self.signal_features.shape[1]
+
+            obs = np.append(signal_obs, position_obs)
+        else:
+            obs = signal_obs
+
+        return obs
+
+    def render_all(self, mode='human'):
+        fig, axs = plt.subplots(2, figsize=(15, 6))
+        window_ticks = np.arange(len(self._position_history))
+
+        axs[0].plot(self.prices)
+        axs[1].plot(self._profit_in_step)
+
+        free_ticks = []
+        long_ticks = []
+        short_ticks = []
+
+        for i, tick in enumerate(window_ticks):
+            if self._position_history[i] == Positions.Free:
+                free_ticks.append(tick)
+            elif self._position_history[i] == Positions.Long:
+                long_ticks.append(tick)
+            elif self._position_history[i] == Positions.Short:
+                short_ticks.append(tick)
+
+        axs[0].plot(free_ticks, self.prices[free_ticks], 'yo')
+        axs[0].plot(long_ticks, self.prices[long_ticks], 'go')
+        axs[0].plot(short_ticks, self.prices[short_ticks], 'ro')
+
+        plt.suptitle(
+            "Total Reward: %.6f" % self._total_reward + ' ~ ' +
+            "Total Profit: %.6f" % self._total_profit + ' ~ ' +
+            "Balance: %.6f" % self._balance + ' ~ ' +
+            "Invalid Action: %.6f" % self._count_invalid_action + ' ~ ' +
+            "Max profit: %.6f" % self._max_profit_possible
+        )
+
+
+
+    def close(self):
+        plt.close()
+        # print
+
+    def save_rendering(self, filepath):
+        plt.savefig(filepath)
+
+    def pause_rendering(self):
+        plt.show()
+
+    def _process_data(self):
+        prices = self.df['close'].to_numpy()
+
+        # prices[self.frame_bound[0] - self.window_size]  # validate index (TODO: Improve validation)
+        prices = prices[self.frame_bound[0] - self.window_size:self.frame_bound[1]]
+
+        # diff = np.insert(np.diff(prices), 0, 0)
+        # signal_features = np.column_stack((prices, diff))
+
+        signal_features = Indicators.sma_indicator(self.df)
+        signal_features = Indicators.macd_indicator(signal_features)
+        signal_features = Indicators.atr_indicator(signal_features)
+        signal_features = Indicators.ema_indicator(signal_features)
+        signal_features = Indicators.kc_indicator(signal_features)
+
+        signal_features = Indicators.rsi_indicator(signal_features)
+        signal_features = Indicators.mom_indicator(signal_features)
+        signal_features = Indicators.vhf_indicator(signal_features)
+        signal_features = Indicators.trix_indicator(signal_features)
+        signal_features = Indicators.rocv_indicator(signal_features)
+        signal_features = signal_features.drop(columns=['open', 'high', 'low', 'close', 'volume', 'tradecount'])
+        signal_features = signal_features.dropna()
+
+        signal_features.reset_index(drop=True, inplace=True)
+
+        signal_features = self.filter_indicators(signal_features)
+        signal_features = signal_features.round(decimals=3)
+
+        return prices, signal_features.to_numpy()
+
+        #############################################################################################################
+
+
+
+        # ipoteticamente questa funzione può esser sostituita da una serie di if in _process_data
+        # solo che mi pareva una pecionata
+
+    def filter_indicators(self, signal_features):
+        '''
+                        Responsabilità di filter_indicators():
+                            1. Filtrare le colonne che si vogliono utilizzare come osservazioni
+                                attraverso la differenza tra l'insieme  degli indicatori calcolati
+                                in _process_data e quelli indicati nel init nella variabile self.indicators_to_use
+                        :param signal_features: Dataframe con tutti gli indicatori
+                        :return filtered_signal_feature: Dataframe contente gli indicatori selezionati in init
+        '''
+        # self.indicators_to_use = ['SMA', 'MACD', 'MACD_signal_line', 'EMA', 'kc_middle', 'kc_upper', 'kc_lower', 'RSI', 'close_prev', 'MOM', 'VHF', 'TRIX', 'ROCV']
+        self.indicators_to_use = ['MACD', 'MACD_signal_line', 'MOM', 'VHF', 'TRIX']
+        indicators_column_to_filter = np.setdiff1d(signal_features.columns, self.indicators_to_use, assume_unique=True)
+        filtered_signal_feature = signal_features.drop(columns=indicators_column_to_filter)
+
+        return filtered_signal_feature
+
+    def max_possible_profit(self):
+
+        price = self.prices[self.window_size:]
+        k = int(len(price) / 2)
+        n = len(price)
+
+        # Bottom-up DP approach
+        profit = [[0 for i in range(k + 1)] for j in range(n)]
+
+        # Profit is zero for the first
+        # day and for zero transactions
+        # TODO non dovrebbe esser moltiplicato per balance?
+        for i in range(1, n):
+
+            for j in range(1, k + 1):
+                max_so_far = 0
+
+                for l in range(i):
+                    max_so_far = max(max_so_far, price[i] -
+                                     price[l] + profit[l][j - 1])
+
+                profit[i][j] = max(profit[i - 1][j], max_so_far)
+
+        return profit[n - 1][k]
