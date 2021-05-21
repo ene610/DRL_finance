@@ -69,7 +69,9 @@ class CryptoTradingEnv(gym.Env):
         self._balance = 10000
         self._first_rendering = None
         self.history = None
-        self._max_profit_possible = self.maxProfit()
+        #self._max_profit_possible = self.maxProfit()
+        self._max_profit_possible = 0
+
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
