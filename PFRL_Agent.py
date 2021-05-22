@@ -18,7 +18,6 @@ email = ""
 password = ""
 
 m = mega.login(email, password)
-m = mega.login()
 
 
 datetime_object = datetime.datetime.now()
@@ -27,13 +26,13 @@ month = str(datetime_object.month)
 day = str(datetime_object.day)
 hour = str(datetime_object.hour)
 minute = str(datetime_object.minute)
-folder_name = "/Long_short_" + day + "-" + month + "-" + year + "|" + hour + ":" + minute
+folder_name = "Long_short_" + day + "-" + month + "-" + year + "|" + hour + ":" + minute
 abs_path = os.path.abspath(os.getcwd())
 tensorboard_path = abs_path + "/tensorboard_" + folder_name[1:]
 os.mkdir(tensorboard_path)
 
 
-PATH = abs_path + folder_name
+PATH = abs_path + "/" + folder_name
 PATH_TO_MEGA_FOLDER = m.create_folder(folder_name)[folder_name]
 
 
@@ -119,7 +118,9 @@ def train_agent(env, agent, n_episodes = 100):
         plt.savefig(PATH + f"/visualization/train/graph_train{episode}")
 
         #ogni tot salva su mega e pulisce la directory con render e agente
-        if episode > 0:
+        if episode % 100 ==  0:
+            #SALVA Agente
+            agent.save(PATH + f"/agents/agent_train{episode}")
             #CREA ARCHIVIO
             name_archivie = folder_name + "_Train:" + str(episode)
             shutil.make_archive(name_archivie, 'zip', PATH)

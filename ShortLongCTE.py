@@ -45,7 +45,7 @@ class Positions(Enum):
 class CryptoTradingEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, df, frame_bound, window_size, indicators=None , position_in_observation : bool = True):
+    def __init__(self, df, frame_bound, window_size: int = 22, indicators=None, position_in_observation: bool = True):
         assert df.ndim == 2
         assert len(frame_bound) == 2
         self.indicators_to_use = indicators
@@ -106,7 +106,7 @@ class CryptoTradingEnv(gym.Env):
         self.history = {}
         self._holding_price_difference = np.zeros(0)
         self._count_invalid_action = 0
-        self._profit_in_step = [0] * self.windows_size
+        self._profit_in_step = [0] * self.window_size
         return self._get_observation()
 
     def step(self, action):
