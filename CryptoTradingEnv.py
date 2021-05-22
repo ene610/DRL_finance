@@ -185,7 +185,7 @@ class CryptoTradingEnv(gym.Env):
             # reward = media dei reward ottenuti dall'hodlding?
 
             if self._holding_price_difference.size > 1:
-                if price_diff / price_diff != self._holding_price_difference[0] / self._holding_price_difference[0]:
+                if np.sign(price_diff) != np.sign(self._holding_price_difference[0]):
                     self._holding_price_difference = np.zeros(0)
 
             self._holding_price_difference = np.append(self._holding_price_difference, price_diff)
@@ -297,7 +297,7 @@ class CryptoTradingEnv(gym.Env):
             "Total Profit: %.6f" % self._total_profit + ' ~ ' +
             "Balance: %.6f" % self._balance + ' ~ ' +
             "Invalid Action: %.6f" % self._count_invalid_action + ' ~ ' +
-            "Max profit: %.6f" % self._max_profit
+            "Max profit: %.6f" % self._max_profit_possible
         )
 
     def close(self):

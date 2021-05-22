@@ -83,7 +83,8 @@ class CryptoTradingEnv(gym.Env):
         self._first_rendering = None
         self.history = None
         #TODO prevedi un flag per attivare questa funzione
-        self._max_profit_possible = self.max_possible_profit()
+        #self._max_profit_possible = self.max_possible_profit()
+        self._max_profit_possible = 0
         self._profit_in_step = np.zeros(0)
 
     def seed(self, seed=None):
@@ -199,7 +200,7 @@ class CryptoTradingEnv(gym.Env):
             # reward = media dei reward ottenuti dall'hodlding?
 
             if self._holding_price_difference.size > 1:
-                if price_diff / price_diff != self._holding_price_difference[0] / self._holding_price_difference[0]:
+                if np.sign(price_diff) != np.sign(self._holding_price_difference[0]):
                     self._holding_price_difference = np.zeros(0)
 
             self._holding_price_difference = np.append(self._holding_price_difference, price_diff)
@@ -234,8 +235,7 @@ class CryptoTradingEnv(gym.Env):
             # +0.2
 
             if self._holding_price_difference.size > 1:
-                #TODO np.sign() ?
-                if price_diff / price_diff != self._holding_price_difference[0] / self._holding_price_difference[0]:
+                if np.sign(price_diff) != np.sign(self._holding_price_difference[0]):
                     self._holding_price_difference = np.zeros(0)
 
             self._holding_price_difference = np.append(self._holding_price_difference, price_diff)

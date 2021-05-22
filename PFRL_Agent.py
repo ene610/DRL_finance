@@ -1,33 +1,59 @@
-from CryptoTradingEnv import CryptoTradingEnv
+from ShortLongCTE import CryptoTradingEnv
 import pfrl
 import torch
 import pandas as pd
 import numpy
 import numpy as np
 import gym
-import matplotlib as plt
+import matplotlib.pyplot as plt
 import os
 import datetime
 import pandas as pd
 from torch.utils.tensorboard import SummaryWriter
+from mega import Mega
+import shutil
+mega = Mega()
+
+email = ""
+password = ""
+
+m = mega.login(email, password)
+m = mega.login()
 
 
 datetime_object = datetime.datetime.now()
-path = os.path.abspath(os.getcwd())
-PATH = path + "/Long_short" + datetime_object
-os.mkdir(PATH)
-os.mkdir(PATH+"/agents")
-os.mkdir(PATH+"/visualization")
-os.mkdir(PATH+"/visualization/train")
-os.mkdir(PATH+"/visualization/eval")
-os.mkdir(PATH+"/tensorboard")
+year = str(datetime_object.year)
+month = str(datetime_object.month)
+day = str(datetime_object.day)
+hour = str(datetime_object.hour)
+minute = str(datetime_object.minute)
+folder_name = "/Long_short_" + day + "-" + month + "-" + year + "|" + hour + ":" + minute
+abs_path = os.path.abspath(os.getcwd())
+tensorboard_path = abs_path + "/tensorboard_" + folder_name[1:]
+os.mkdir(tensorboard_path)
+
+
+PATH = abs_path + folder_name
+PATH_TO_MEGA_FOLDER = m.create_folder(folder_name)[folder_name]
+
+
+def create_folders(PATH):
+    os.mkdir(PATH)
+    os.mkdir(PATH + "/agents" )
+    os.mkdir(PATH + "/visualization" )
+    os.mkdir(PATH + "/visualization/train" )
+    os.mkdir(PATH + "/visualization/eval" )
+
+
+
 
 
 class QFunction(torch.nn.Module):
 
     def __init__(self, obs_size, n_actions):
+
         super().__init__()
-        alfa = int(obs_size / 2) + 1
+
         self.l1 = torch.nn.Linear(obs_size, 360)
         self.l2 = torch.nn.Linear(360, 360)
         self.l3 = torch.nn.Linear(360, 512)
@@ -54,18 +80,19 @@ class QFunction(torch.nn.Module):
 
         return pfrl.action_value.DiscreteActionValue(output)
 
+def train_agent(env, agent, n_episodes = 100):
 
-
-def train_agent(env,agent,n_episodes = 100):
-
-    writer = SummaryWriter(PATH + "/tensorboard")
+    writer = SummaryWriter(tensorboard_path)
     for episode in range(1, n_episodes + 1):
 
+        print(f"training episode:{episode} of {n_episodes + 1}")
         obs = env.reset()
         obs = obs.flatten()
         R = 0  # return (sum of rewards)
         t = 0  # time step
+
         while True:
+
             # Uncomment to watch the behavior in a GUI window
             # env.render()
             action = agent.act(obs)
@@ -75,31 +102,43 @@ def train_agent(env,agent,n_episodes = 100):
             t += 1
             reset = False
             agent.observe(obs, reward, done, reset)
+
             if done:
                 break
 
+        #salva scalari
         writer.add_scalar('Reward/train', R, episode)
+        #TODO inserisci anche reward e loss
+        #salva agente
         os.mkdir(PATH + f"/agents/agent_train{episode}")
         agent.save(PATH + f"/agents/agent_train{episode}")
-
+        #salva render
         info_training = f"episode:{episode}/{n_episodes}"
         env.render_all()
         plt.title(info_training)
-        # plt.set_xlabel("X_axis_title")
         plt.savefig(PATH + f"/visualization/train/graph_train{episode}")
 
-    agent.save(path)
+        #ogni tot salva su mega e pulisce la directory con render e agente
+        if episode > 0:
+            #CREA ARCHIVIO
+            name_archivie = folder_name + "_Train:" + str(episode)
+            shutil.make_archive(name_archivie, 'zip', PATH)
+            #Upload su mega
+            m.upload(name_archivie + ".zip", PATH_TO_MEGA_FOLDER)
+            #Rimuove  il folder PATH e lo ricrea
+            shutil.rmtree(PATH, ignore_errors=True)
+            create_folders(PATH)
 
+def evalute_agent(agent, id_str, data, n_episodes = 100):
 
-def evalute_agent(agent,id_str,data,n_episodes = 100):
-
-    writer = SummaryWriter(PATH + "/tensorboard")
+    writer = SummaryWriter(tensorboard_path)
     inizio = 100000
+
     with agent.eval_mode():
         for episode in range(1, n_episodes):
             R = 0
             fine = inizio + 1440
-            env = gym.make(id_str, df=data, frame_bound=(inizio, fine), window_size=22)
+            env = gym.make(id_str, df=data, frame_bound= (inizio, fine), window_size=22)
             obs = env.reset()
 
             while True:
@@ -114,13 +153,25 @@ def evalute_agent(agent,id_str,data,n_episodes = 100):
                 if done:
                     break
 
-            info_training = f"episode:{episode}/{n_episodes}"
+            # TODO spedisci tutto a mega
+
+            info_eval = f"episode:{episode}/{n_episodes}"
             writer.add_scalar('Reward/evaluation', R, episode)
             plt.figure(figsize=(0.00000001, 0.00000000001))
-            plt.title(info_training)
+            plt.title(info_eval)
             env.render_all()
-            # TODO salva plt ora
-            plt.savefig(PATH + f"/visualization/train/graph_train{episode}")
+            plt.savefig(PATH + f"/visualization/eval/graph_eval{episode}")
+
+            if episode > 0:
+                # CREA ARCHIVIO
+                name_archivie = folder_name + "_Eval:" + str(episode)
+                shutil.make_archive(name_archivie, 'zip', PATH)
+                # Upload su mega
+                m.upload(name_archivie + ".zip", PATH_TO_MEGA_FOLDER)
+                # Rimuove  il folder PATH e lo ricrea
+                shutil.rmtree(PATH, ignore_errors=True)
+                create_folders(PATH)
+
             inizio = fine
 
     print('Finished.')
@@ -192,8 +243,8 @@ def create_agent(env):
     )
     return agent
 
-
 def main():
+    create_folders(PATH)
     data = load_data()
     id_str = "Long-Short-Crypto-env-v1"
     create_enviroment(id_str)
@@ -202,3 +253,6 @@ def main():
     agent = create_agent(env)
     train_agent(env, agent, n_episodes=1000)
     evalute_agent(agent, id_str, data)
+
+if __name__ == "__main__":
+  main()
