@@ -28,8 +28,7 @@ hour = str(datetime_object.hour)
 minute = str(datetime_object.minute)
 folder_name = "Long_short_" + day + "-" + month + "-" + year + "|" + hour + ":" + minute
 abs_path = os.path.abspath(os.getcwd())
-tensorboard_path = abs_path + "/tensorboard_" + folder_name[1:]
-os.mkdir(tensorboard_path)
+tensorboard_path = abs_path + "/tensorboard_" + folder_name
 
 
 PATH = abs_path + "/" + folder_name
@@ -42,10 +41,6 @@ def create_folders(PATH):
     os.mkdir(PATH + "/visualization" )
     os.mkdir(PATH + "/visualization/train" )
     os.mkdir(PATH + "/visualization/eval" )
-
-
-
-
 
 class QFunction(torch.nn.Module):
 
@@ -169,6 +164,7 @@ def evalute_agent(agent, id_str, data, n_episodes = 100):
                 shutil.make_archive(name_archivie, 'zip', PATH)
                 # Upload su mega
                 m.upload(name_archivie + ".zip", PATH_TO_MEGA_FOLDER)
+                os.remove(name_archivie + ".zip")
                 # Rimuove  il folder PATH e lo ricrea
                 shutil.rmtree(PATH, ignore_errors=True)
                 create_folders(PATH)
@@ -244,14 +240,49 @@ def create_agent(env):
     )
     return agent
 
+def directory_choiche_load_agent():
+    abs_path = os.path.abspath(os.getcwd())
+    trained_agent_dirname = abs_path + "/trained_agents"
+    path_to_agent = None
+    while True:
+        i = 0
+        list_of_agents = os.listdir(trained_agent_dirname)
+        for agent in list_of_agents:
+            print(f"[{i}]" + agent)
+            i += 1
+        print("agent to load (-1 for exit)")
+        choiche = input()
+        if choiche in range(len(os.listdir(trained_agent_dirname))):
+            path_to_agent = list_of_agents[choiche]
+            break
+        if choiche == -1:
+            break
+
+    return path_to_agent
+
+    return
+def load_agent(agent):
+    path_to_agent = directory_choiche_load_agent
+    if path_to_agent:
+        agent.load(path_to_agent)
+    return agent
+
+
 def main():
     create_folders(PATH)
+    #crea tensorboard folder
+    os.mkdir(tensorboard_path)
+
     data = load_data()
     id_str = "Long-Short-Crypto-env-v1"
     create_enviroment(id_str)
     #TODO cambia a 100k
-    env = gym.make(id_str, df=data, frame_bound=(22, 1440), window_size=22)
+    env = gym.make(id_str, df=data, frame_bound=(22, 1440), window_size = 22)
     agent = create_agent(env)
+
+    if False:
+        load_agent(agent)
+
     train_agent(env, agent, n_episodes=1000)
     evalute_agent(agent, id_str, data)
 
