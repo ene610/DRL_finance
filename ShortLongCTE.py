@@ -340,7 +340,7 @@ class CryptoTradingEnv(gym.Env):
         return obs
 
     def render_all(self, mode='human'):
-        fig, axs = plt.subplots(2, figsize=(300, 120))
+        fig, axs = plt.subplots(2, figsize=(15, 6))
         window_ticks = np.arange(len(self._position_history))
 
         axs[0].plot(self.prices)

@@ -90,20 +90,23 @@ def train_agent(env, agent, n_episodes = 100):
 
             # Uncomment to watch the behavior in a GUI window
             # env.render()
+
             action = agent.act(obs)
             obs, reward, done, _ = env.step(action)
             obs = obs.flatten()
             R += reward
             t += 1
             reset = False
-            print(agent.get_statistics())
+            statistics = agent.get_statistics()
             agent.observe(obs, reward, done, reset)
+            writer.add_scalar('Train/average_q', statistics["average_q"], t)
+            writer.add_scalar('Train/average_loss', statistics["average_loss"], t)
 
             if done:
                 break
 
         #salva scalari
-        writer.add_scalar('Reward/train', R, episode)
+        writer.add_scalar('Train/Reward', R, episode)
         #TODO inserisci anche reward e loss
         #salva agente
         os.mkdir(PATH + f"/agents/agent_train{episode}")
@@ -115,7 +118,7 @@ def train_agent(env, agent, n_episodes = 100):
         plt.savefig(PATH + f"/visualization/train/graph_train{episode}")
 
         #ogni tot salva su mega e pulisce la directory con render e agente
-        if episode % 100 ==  0:
+        if episode % 2 ==  0:
             #SALVA Agente
             agent.save(PATH + f"/agents/agent_train{episode}")
             #CREA ARCHIVIO
@@ -166,7 +169,7 @@ def evalute_agent(agent, id_str, data, n_episodes = 100):
             env.render_all()
             plt.savefig(PATH + f"/visualization/eval/graph_eval{episode}")
 
-            if episode > 0:
+            if episode % 2 == 0:
                 # CREA ARCHIVIO
                 name_archivie = folder_name + "_Eval:" + str(episode)
                 shutil.make_archive(name_archivie, 'zip', PATH)
@@ -293,8 +296,8 @@ def main():
     if False:
         load_agent(agent)
 
-    train_agent(env, agent, n_episodes=1000)
-    evalute_agent(agent, id_str, data)
+    train_agent(env, agent, n_episodes=10)
+    evalute_agent(agent, id_str, data, n_episodes = 10)
 
 if __name__ == "__main__":
   main()
