@@ -26,6 +26,7 @@ month = str(datetime_object.month)
 day = str(datetime_object.day)
 hour = str(datetime_object.hour)
 minute = str(datetime_object.minute)
+
 folder_name = "Long_short_" + day + "-" + month + "-" + year + "|" + hour + ":" + minute
 abs_path = os.path.abspath(os.getcwd())
 tensorboard_path = abs_path + "/tensorboard_" + folder_name
@@ -95,6 +96,7 @@ def train_agent(env, agent, n_episodes = 100):
             R += reward
             t += 1
             reset = False
+            print(agent.get_statistics())
             agent.observe(obs, reward, done, reset)
 
             if done:
@@ -121,11 +123,15 @@ def train_agent(env, agent, n_episodes = 100):
             shutil.make_archive(name_archivie, 'zip', PATH)
             #Upload su mega
             m.upload(name_archivie + ".zip", PATH_TO_MEGA_FOLDER)
-            #Rimuove  il folder PATH e lo ricrea
+            #Rimuove  il folder PATH e lo ricrea e l'archivuo inviato a MEga
             shutil.rmtree(PATH, ignore_errors=True)
-            create_folders(PATH)
-            #rimuove l'archivuo inviato a MEga
             os.remove(name_archivie + ".zip")
+
+            #
+            create_folders(PATH)
+
+        plt.cla()
+
 
 def evalute_agent(agent, id_str, data, n_episodes = 100):
 
@@ -135,7 +141,7 @@ def evalute_agent(agent, id_str, data, n_episodes = 100):
     with agent.eval_mode():
         for episode in range(1, n_episodes):
             R = 0
-            fine = inizio + 1440
+            fine = inizio + 60
             env = gym.make(id_str, df=data, frame_bound= (inizio, fine), window_size=22)
             obs = env.reset()
 
@@ -166,13 +172,13 @@ def evalute_agent(agent, id_str, data, n_episodes = 100):
                 shutil.make_archive(name_archivie, 'zip', PATH)
                 # Upload su mega
                 m.upload(name_archivie + ".zip", PATH_TO_MEGA_FOLDER)
-                os.remove(name_archivie + ".zip")
                 # Rimuove  il folder PATH e lo ricrea
                 shutil.rmtree(PATH, ignore_errors=True)
                 create_folders(PATH)
                 # rimuove l'archivuo inviato a MEga
                 os.remove(name_archivie + ".zip")
 
+            plt.cla()
             inizio = fine
 
     print('Finished.')
