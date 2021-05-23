@@ -99,8 +99,8 @@ def train_agent(env, agent, n_episodes = 100):
             reset = False
             statistics = agent.get_statistics()
             agent.observe(obs, reward, done, reset)
-            writer.add_scalar('Train/average_q', statistics["average_q"], t)
-            writer.add_scalar('Train/average_loss', statistics["average_loss"], t)
+            writer.add_scalar('Train/average_q', statistics[0][1], t)
+            writer.add_scalar('Train/average_loss', statistics[1][1], t)
 
             if done:
                 break
@@ -163,7 +163,7 @@ def evalute_agent(agent, id_str, data, n_episodes = 100):
             # TODO spedisci tutto a mega
 
             info_eval = f"episode:{episode}/{n_episodes}"
-            writer.add_scalar('Reward/evaluation', R, episode)
+            writer.add_scalar('Evaluation/Reward', R, episode)
             plt.figure(figsize=(0.00000001, 0.00000000001))
             plt.title(info_eval)
             env.render_all()
