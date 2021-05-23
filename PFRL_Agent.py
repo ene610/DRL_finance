@@ -97,16 +97,19 @@ def train_agent(env, agent, n_episodes = 100):
             R += reward
             t += 1
             reset = False
-            statistics = agent.get_statistics()
+
             agent.observe(obs, reward, done, reset)
-            writer.add_scalar('Train/average_q', statistics[0][1], t)
-            writer.add_scalar('Train/average_loss', statistics[1][1], t)
+
 
             if done:
                 break
+        statistics = agent.get_statistics()
+
 
         #salva scalari
         writer.add_scalar('Train/Reward', R, episode)
+        writer.add_scalar('Train/average_q', statistics[0][1], episode)
+        writer.add_scalar('Train/average_loss', statistics[1][1], episode)
         #TODO inserisci anche reward e loss
         #salva agente
         os.mkdir(PATH + f"/agents/agent_train{episode}")
@@ -147,10 +150,11 @@ def evalute_agent(agent, id_str, data, n_episodes = 100):
             fine = inizio + 60
             env = gym.make(id_str, df=data, frame_bound= (inizio, fine), window_size=22)
             obs = env.reset()
-
+            print(f"eval episode: {episode + 1} of {n_episodes}")
             while True:
                 # Uncomment to watch the behavior in a GUI window
                 # env.render()
+
                 action = agent.act(obs)
 
                 obs, reward, done, _ = env.step(action)
