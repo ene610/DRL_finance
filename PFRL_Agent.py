@@ -124,6 +124,8 @@ def train_agent(env, agent, n_episodes = 100):
             #Rimuove  il folder PATH e lo ricrea
             shutil.rmtree(PATH, ignore_errors=True)
             create_folders(PATH)
+            #rimuove l'archivuo inviato a MEga
+            os.remove(name_archivie + ".zip")
 
 def evalute_agent(agent, id_str, data, n_episodes = 100):
 
@@ -168,6 +170,8 @@ def evalute_agent(agent, id_str, data, n_episodes = 100):
                 # Rimuove  il folder PATH e lo ricrea
                 shutil.rmtree(PATH, ignore_errors=True)
                 create_folders(PATH)
+                # rimuove l'archivuo inviato a MEga
+                os.remove(name_archivie + ".zip")
 
             inizio = fine
 
