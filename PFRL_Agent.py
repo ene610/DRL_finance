@@ -12,13 +12,14 @@ import pandas as pd
 from torch.utils.tensorboard import SummaryWriter
 from mega import Mega
 import shutil
+pd.options.mode.chained_assignment = None
+
 mega = Mega()
 
 email = ""
 password = ""
 
 m = mega.login(email, password)
-
 
 datetime_object = datetime.datetime.now()
 year = str(datetime_object.year)
@@ -136,7 +137,7 @@ def train_agent(env, agent, n_episodes = 100):
             #
             create_folders(PATH)
 
-        plt.cla()
+        plt.close()
 
 
 def evalute_agent(agent, id_str, data, n_episodes = 100):
@@ -168,8 +169,8 @@ def evalute_agent(agent, id_str, data, n_episodes = 100):
 
             info_eval = f"episode:{episode}/{n_episodes}"
             writer.add_scalar('Evaluation/Reward', R, episode)
-            plt.figure(figsize=(0.00000001, 0.00000000001))
-            plt.title(info_eval)
+            #plt.figure(figsize=(0.00000001, 0.00000000001))
+            #plt.title(info_eval)
             env.render_all()
             plt.savefig(PATH + f"/visualization/eval/graph_eval{episode}")
 
@@ -185,7 +186,7 @@ def evalute_agent(agent, id_str, data, n_episodes = 100):
                 # rimuove l'archivuo inviato a MEga
                 os.remove(name_archivie + ".zip")
 
-            plt.cla()
+            plt.close()
             inizio = fine
 
     print('Finished.')
@@ -257,7 +258,7 @@ def create_agent(env):
     )
     return agent
 
-def directory_choiche_load_agent():
+def directory_choice_load_agent():
     abs_path = os.path.abspath(os.getcwd())
     trained_agent_dirname = abs_path + "/trained_agents"
     path_to_agent = None
@@ -268,18 +269,18 @@ def directory_choiche_load_agent():
             print(f"[{i}]" + agent)
             i += 1
         print("agent to load (-1 for exit)")
-        choiche = input()
-        if choiche in range(len(os.listdir(trained_agent_dirname))):
-            path_to_agent = list_of_agents[choiche]
+        choice = int(input())
+        if choice in range(len(list_of_agents)):
+            path_to_agent = list_of_agents[choice]
             break
-        if choiche == -1:
+        if choice == -1:
             break
 
-    return path_to_agent
+    return trained_agent_dirname + "/" + path_to_agent
 
     return
 def load_agent(agent):
-    path_to_agent = directory_choiche_load_agent
+    path_to_agent = directory_choice_load_agent()
     if path_to_agent:
         agent.load(path_to_agent)
     return agent

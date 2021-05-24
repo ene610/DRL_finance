@@ -5,6 +5,8 @@ import numpy as np
 from enum import Enum
 import matplotlib.pyplot as plt
 from indicators import Indicators
+import pandas as pd
+pd.options.mode.chained_assignment = None
 
 class Actions(Enum):
     # Mappo sono le azioni legittime nella forma:
