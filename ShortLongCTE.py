@@ -52,16 +52,19 @@ class CryptoTradingEnv(gym.Env):
         assert len(frame_bound) == 2
         self.indicators_to_use = indicators
         self.seed()
+        #TODO cambia nome
         self.df = df
         self.frame_bound = frame_bound
         self.window_size = window_size
         self.prices, self.signal_features = self._process_data()
 
         self.position_in_observation = position_in_observation
+
         if self.position_in_observation:
-            self.shape = (window_size + 1, self.signal_features.shape[1])
+            self.shape = (window_size, self.signal_features.shape[1] + 1)
         else:
             self.shape = (window_size, self.signal_features.shape[1])
+
         self.invalid_action_replay = True
         self._invalid_action = False
         self._count_invalid_action = 0
@@ -101,7 +104,7 @@ class CryptoTradingEnv(gym.Env):
         self._open_position_tick = 0
         self._last_trade_tick = self._current_tick - 1
         self._position = Positions.Free
-        self._position_history = (self.window_size * [0]) + [self._position]
+        self._position_history = ([Positions.Free.value] * (self.window_size - 1)) + [self._position.value]
         self._total_reward = 0.
         self._total_profit = 0.  # unit
         self._first_rendering = True
@@ -120,26 +123,29 @@ class CryptoTradingEnv(gym.Env):
         '''
         self._invalid_action = False
         self._done = False
-        self._current_tick += 1
 
-        if self._current_tick == self._end_tick:
-            self._done = True
 
         self._update_profit(action)
         # Attenzione! self._position viene cambiata in step_reward quindi update_profit() deve essere chiamato prima
         step_reward = self._calculate_reward(action)
 
-        if self._invalid_action:
-            self._current_tick -= 1
-        else:
-            self._position_history.append(self._position)
-        observation = self._get_observation()
         info = dict(
             total_reward=self._total_reward,
             total_profit=self._total_profit,
             balance=self._balance,
             position=self._position.value
         )
+
+        if not self._invalid_action:
+            self._current_tick += 1
+            self._position_history.append(self._position.value)
+            self._profit_in_step = np.append(self._profit_in_step, self._total_profit)
+
+        if self._current_tick == self._end_tick:
+            self._done = True
+
+        observation = self._get_observation()
+
 
         return observation, step_reward, self._done, info
 
@@ -259,7 +265,7 @@ class CryptoTradingEnv(gym.Env):
 
         else:
             if self.invalid_action_replay:
-                self.invalid_action = True
+                self._invalid_action = True
                 self._count_invalid_action += 1
 
         self._total_reward += step_reward
@@ -306,38 +312,30 @@ class CryptoTradingEnv(gym.Env):
             self._balance += profit
             self._total_profit += profit
 
-        self._profit_in_step = np.append(self._profit_in_step, self._total_profit)
+
+
 
     def _get_observation(self):
         signal_obs = self.signal_features[(self._current_tick - self.window_size) : self._current_tick]
-        obs = []
+        #obs = []
 
-        if self.position_in_observation:
-            position_obs = [self._position.value] * self.signal_features.shape[1]
+        # 1. Prendere le ultime window_size righe di history_position
+        last_window_size_positions_history = np.array(self._position_history[-self.window_size:])
 
-            obs = np.append(signal_obs, position_obs)
-        else:
-            obs = signal_obs
+        # 2. Trasformarle in una colonna
+        last_window_size_positions_history = last_window_size_positions_history[:, np.newaxis]
 
-        return obs
+        # 3. Aggiungerle a obs
+        obs = np.c_[signal_obs, last_window_size_positions_history]
 
-    def _get_observation_price_variation_percentage(self):
-        prev_price = None
-        signal_obs = np.zeros(0)
-
-        for price in self.prices[self._current_tick, self._current_tick + self.self.window_size]:
-            if prev_price:
-                price_variation_percentage = (price - prev_price) / prev_price
-                signal_obs = np.append(signal_obs,price_variation_percentage)
-
-            prev_price = price
-
-        if self.position_in_observation:
-            position_obs = [self._position.value] * self.signal_features.shape[1]
-
-            obs = np.append(signal_obs, position_obs)
-        else:
-            obs = signal_obs
+        #
+        # # TODO ragionare se aggiungere o meno la posizione ad ogni timestep passato nell'osservazione
+        # if self.position_in_observation:
+        #     position_obs = [self._position.value] * self.signal_features.shape[1]
+        #
+        #     obs = np.append(signal_obs, position_obs)
+        # else:
+        #     obs = signal_obs
 
         return obs
 
@@ -353,11 +351,11 @@ class CryptoTradingEnv(gym.Env):
         short_ticks = []
 
         for i, tick in enumerate(window_ticks):
-            if self._position_history[i] == Positions.Free:
+            if self._position_history[i] == Positions.Free.value:
                 free_ticks.append(tick)
-            elif self._position_history[i] == Positions.Long:
+            elif self._position_history[i] == Positions.Long.value:
                 long_ticks.append(tick)
-            elif self._position_history[i] == Positions.Short:
+            elif self._position_history[i] == Positions.Short.value:
                 short_ticks.append(tick)
 
         axs[0].plot(free_ticks, self.prices[free_ticks], 'yo')
@@ -388,7 +386,7 @@ class CryptoTradingEnv(gym.Env):
         prices = self.df['close'].to_numpy()
 
         # prices[self.frame_bound[0] - self.window_size]  # validate index (TODO: Improve validation)
-        prices = prices[self.frame_bound[0] - self.window_size:self.frame_bound[1]]
+        prices = prices[self.frame_bound[0] - self.window_size : self.frame_bound[1]]
 
         # diff = np.insert(np.diff(prices), 0, 0)
         # signal_features = np.column_stack((prices, diff))
@@ -404,6 +402,16 @@ class CryptoTradingEnv(gym.Env):
         signal_features = Indicators.vhf_indicator(signal_features)
         signal_features = Indicators.trix_indicator(signal_features)
         signal_features = Indicators.rocv_indicator(signal_features)
+
+        # diff_close_pct_5 = differenza percentuale tra il close alla candela attuale e quello della candela di 5 timestamps fa?
+        #df['diff_close_pct_5'] = ((df['close'] / np.roll(df['close'], shift=(int(5)))) * 100) - 100
+        #df['diff_close_pct_10'] = ((df['close'] / np.roll(df['close'], shift=(int(10)))) * 100) - 100
+        #df['diff_close_pct_15'] = ((df['close'] / np.roll(df['close'], shift=(int(15)))) * 100) - 100
+        signal_features['diff_pct_1'] = ((self.df['close'] / np.roll(self.df['close'], shift=(int(1)))) * 100) - 100
+        signal_features['diff_pct_5'] = ((self.df['close'] / np.roll(self.df['close'], shift=(int(5)))) * 100) - 100
+        signal_features['diff_pct_15'] = ((self.df['close'] / np.roll(self.df['close'], shift=(int(15)))) * 100) - 100
+        signal_features['diff_pct_22'] = ((self.df['close'] / np.roll(self.df['close'], shift=(int(22)))) * 100) - 100
+
         signal_features = signal_features.drop(columns=['open', 'high', 'low', 'close', 'volume', 'tradecount'])
         signal_features = signal_features.dropna()
 
@@ -428,10 +436,11 @@ class CryptoTradingEnv(gym.Env):
                                 attraverso la differenza tra l'insieme  degli indicatori calcolati
                                 in _process_data e quelli indicati nel init nella variabile self.indicators_to_use
                         :param signal_features: Dataframe con tutti gli indicatori
-                        :return filtered_signal_feature: Dataframe contente gli indicatori selezionati in init
+                        :return filtered_signal_feature: Dataframe contenente gli indicatori selezionati in init
         '''
         # self.indicators_to_use = ['SMA', 'MACD', 'MACD_signal_line', 'EMA', 'kc_middle', 'kc_upper', 'kc_lower', 'RSI', 'close_prev', 'MOM', 'VHF', 'TRIX', 'ROCV']
-        self.indicators_to_use = ['MACD', 'MACD_signal_line', 'MOM', 'VHF', 'TRIX']
+        #self.indicators_to_use = ['MACD', 'MACD_signal_line', 'MOM', 'VHF', 'TRIX']
+        self.indicators_to_use = ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']
         indicators_column_to_filter = np.setdiff1d(signal_features.columns, self.indicators_to_use, assume_unique=True)
         filtered_signal_feature = signal_features.drop(columns=indicators_column_to_filter)
 
