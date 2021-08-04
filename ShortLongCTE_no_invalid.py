@@ -114,18 +114,24 @@ class CryptoTradingEnv(gym.Env):
 
         self.returns_balance = dict()
         self.returns_balance[self._current_tick] = 10000
-        # print(list(self.returns_balance.keys()))
-        # print(self.returns_balance)
+
         return self._get_observation()
 
+    # change in sharpe_ratio_reward
     def sharpe_calculator(self, current_balance, rf=0):
         key_list = list(self.returns_balance.keys())
-        returns_list = list(self.returns_balance.keys())[key_list.index(self._open_position_tick):]
-        # rf = 0
-        roi_holding_long = (current_balance - self.returns_balance[self._open_position_tick]) / self.returns_balance[
-            self._open_position_tick] * 100
+        returns_list = list(self.returns_balance.values())[key_list.index(self._open_position_tick):]
+        roi = (returns_list[-1] - returns_list[0]) / returns_list[0] * 100
         std = np.array(returns_list).std()
-        sharpe_ratio = (roi_holding_long - rf) / std
+        sharpe_ratio = (roi - rf) / std
+        return sharpe_ratio
+
+    def sharpe_calculator_total(self, rf=0):
+
+        returns_list = list(self.returns_balance.values())
+        roi = (returns_list[-1] - returns_list[0]) / returns_list[0] * 100
+        std = np.array(returns_list).std()
+        sharpe_ratio = (roi - rf) / std
         return sharpe_ratio
 
     def step(self, action):
@@ -259,6 +265,7 @@ class CryptoTradingEnv(gym.Env):
             self._holding_price_difference = np.zeros(0)
             close_in_long = self.returns_balance[self._open_position_tick] / open_position_price * current_price
             self.returns_balance[self._current_tick] = close_in_long
+
             step_reward = self.sharpe_calculator(close_in_long)
 
         elif action == Actions.OpenShortPos.value and self._position == Positions.Free:
@@ -417,13 +424,15 @@ class CryptoTradingEnv(gym.Env):
         axs[0].plot(free_ticks, self.prices[free_ticks], 'yo')
         axs[0].plot(long_ticks, self.prices[long_ticks], 'go')
         axs[0].plot(short_ticks, self.prices[short_ticks], 'ro')
+        sharpe_ratio = self.sharpe_calculator_total()
 
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
             "Total Profit: %.6f" % self._total_profit + ' ~ ' +
             "Balance: %.6f" % self._balance + ' ~ ' +
             "Invalid Action: %.6f" % self._count_invalid_action + ' ~ ' +
-            "Max profit: %.6f" % self._max_profit_possible
+            "Sharpe Ratio: %.6f" % sharpe_ratio
+            # "Max profit: %.6f" % self._max_profit_possible
         )
 
     def close(self):
