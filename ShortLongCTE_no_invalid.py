@@ -403,7 +403,7 @@ class CryptoTradingEnv(gym.Env):
         window_ticks = np.arange(len(self._position_history))
         axs[0].plot(self.prices)
 
-        returns = list(env.returns_balance.values())
+        returns = list(self.returns_balance.values())
         returns = [ret - 10000 for ret in returns]
         returns = [0] * self.window_size + returns
         axs[1].plot(returns)

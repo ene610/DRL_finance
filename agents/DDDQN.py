@@ -60,8 +60,9 @@ class MachinDDDQN():
                     old_state = state
                     # agent model inference
                     action = self.dddqn.act_discrete_with_noise({"state": old_state})
-                    reward = float(reward)
+
                     state, reward, terminal, _ = env.step(action.item())
+                    reward = float(reward)
                     state = t.tensor(state, dtype=t.float32).reshape(1, self.observe_dim)
                     total_reward += reward
 
