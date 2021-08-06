@@ -6,6 +6,7 @@ from enum import Enum
 import matplotlib.pyplot as plt
 from indicators import Indicators
 import pandas as pd
+import math
 pd.options.mode.chained_assignment = None
 
 
@@ -124,6 +125,8 @@ class CryptoTradingEnv(gym.Env):
         roi = (returns_list[-1] - returns_list[0]) / returns_list[0] * 100
         std = np.array(returns_list).std()
         sharpe_ratio = (roi - rf) / std
+        if math.isnan(sharpe_ratio):
+            sharpe_ratio = 0
         return sharpe_ratio
 
     def sharpe_calculator_total(self, rf=0):
