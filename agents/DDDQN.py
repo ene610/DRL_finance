@@ -23,12 +23,22 @@ class QNet(nn.Module):
 
     def forward(self, state):
 
+        #a = t.relu(self.fc1(state))
+        #a = t.relu(self.fc2(a))
+        #a = t.relu(self.fc3(a))
+        #adv = self.fc_adv(a)
+        #val = self.fc_val(a).expand(a, self.action_num)
+        #return val + adv - adv.mean(1, keepdim=True)
+
+        #https://github.com/gouxiangchen/dueling-DQN-pytorch/blob/master/dueling_dqn.py
+
         a = t.relu(self.fc1(state))
         a = t.relu(self.fc2(a))
         a = t.relu(self.fc3(a))
-        adv = self.fc_adv(a)
-        val = self.fc_val(a).expand(self.batch_sze, self.action_num)
-        return val + adv - adv.mean(1, keepdim=True)
+        value = t.relu(self.fc_val(a))
+        adv = t.relu(self.fc_adv(a))
+
+        return value + adv - adv.mean(1, keepdim=True)
 
 
 class MachinDDDQN():
