@@ -573,24 +573,25 @@ class MomentumAgent():
         return
 
     def act(self, obs):
+        #TODO cambiare nomi colonne
+        #obs deve contenere solo le chiusure
+        obs = pd.DataFrame(obs,columns=["close"])
+        #print(obs)
         obs['9-day'] = obs['close'].rolling(9).mean()
         obs['20-day'] = obs['close'].rolling(20).mean()
 
         obs['signal'] = np.where(obs['9-day'] > obs['20-day'], 1, 0)
         obs['signal'] = np.where(obs['9-day'] < obs['20-day'], 2, obs['signal'])
 
-        obs['signal'] = np.where(obs['9-day'] > obs['20-day'], 1, 0)
-        obs['signal'] = np.where(obs['9-day'] < obs['20-day'], 2, obs['signal'])
-
-        action = int(obs.signal[-1])
-
+        action = int(obs["signal"].iloc[-1])
         return action
+
 
 class MovingAverageCrossoverAgent():
 
-    #The second thing of importance is coming to understand the
+    # The second thing of importance is coming to understand the
     # trigger for trading with moving average crossovers.
-    #A buy or sell signal is triggered once the smaller moving average crosses above or
+    # A buy or sell signal is triggered once the smaller moving average crosses above or
     # below the larger moving average, respectively.
 
     def __init__(self):
@@ -598,17 +599,26 @@ class MovingAverageCrossoverAgent():
 
     # obs deve contentere ['closes', 'sma']
     # obs dovrebbe essere un numpy
-    #TODO controllare che il valore di default di sma in Indicators
+    # TODO controllare che il valore di default di sma in Indicators
     def act(self, obs):
-        assert obs.columns.toList() == ['close', 'sma']
+        obs = pd.DataFrame(obs, columns=["close", "sma"])
         obs["sma5"] = obs["close"].rolling(window=5).mean()
+        obs["sma10"] = obs["close"].rolling(window=10).mean()
+
+        pre_sma5, sma5 = obs.sma5.values[-2], obs.sma5.values[-1]
+        pre_sma10, sma10 = obs.sma10.values[-2], obs.sma10.values[-1]
 
         # BUY SIGNAL = se sma5 incrocia (cioè supera da sotto verso sopra) sma10 compro
-        if obs['sma5'][-2] < obs['sma'][-2] and obs['sma5'][-1] > obs['sma'][-1]:
+        if pre_sma5 < pre_sma10 and sma5 > sma10:
             return 1
 
-        if obs['sma5'][-2] > obs['sma'][-2] and obs['sma5'][-1] < obs['sma'][-1]:
+        if pre_sma5 > pre_sma10 and sma5 < sma10:
             return 2
+
+        if sma5 < sma10:
+            return 2
+        if sma5 > sma10:
+            return 1
 
         return 0
 

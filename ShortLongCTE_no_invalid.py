@@ -46,7 +46,9 @@ class Positions(Enum):
 class CryptoTradingEnv(gym.Env):
     metadata = {'render.modes': ['human']}
 
-    def __init__(self, df, frame_bound, window_size: int = 22, indicators=None, position_in_observation: bool = True):
+    def __init__(self, df, frame_bound, window_size: int = 22,
+                 indicators=['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22'],
+                 position_in_observation: bool = True):
         assert df.ndim == 2
         assert len(frame_bound) == 2
         self.indicators_to_use = indicators
@@ -380,23 +382,18 @@ class CryptoTradingEnv(gym.Env):
         signal_obs = self.signal_features[(self._current_tick - self.window_size): self._current_tick]
         # obs = []
 
-        # 1. Prendere le ultime window_size righe di history_position
-        last_window_size_positions_history = np.array(self._position_history[-self.window_size:])
+        if self.position_in_observation:
+            # 1. Prendere le ultime window_size righe di history_position
+            last_window_size_positions_history = np.array(self._position_history[-self.window_size:])
 
-        # 2. Trasformarle in una colonna
-        last_window_size_positions_history = last_window_size_positions_history[:, np.newaxis]
+            # 2. Trasformarle in una colonna
+            last_window_size_positions_history = last_window_size_positions_history[:, np.newaxis]
 
-        # 3. Aggiungerle a obs
-        obs = np.c_[signal_obs, last_window_size_positions_history]
+            # 3. Aggiungerle a obs
+            obs = np.c_[signal_obs, last_window_size_positions_history]
 
-        #
-        # # TODO ragionare se aggiungere o meno la posizione ad ogni timestep passato nell'osservazione
-        # if self.position_in_observation:
-        #     position_obs = [self._position.value] * self.signal_features.shape[1]
-        #
-        #     obs = np.append(signal_obs, position_obs)
-        # else:
-        #     obs = signal_obs
+        else:
+            obs = signal_obs
 
         return obs
 
@@ -449,6 +446,7 @@ class CryptoTradingEnv(gym.Env):
         plt.show()
 
     def _process_data(self):
+
         prices = self.df['close'].to_numpy()
 
         # prices[self.frame_bound[0] - self.window_size]  # validate index (TODO: Improve validation)
@@ -478,8 +476,8 @@ class CryptoTradingEnv(gym.Env):
         signal_features['diff_pct_15'] = ((self.df['close'] / np.roll(self.df['close'], shift=(int(15)))) * 100) - 100
         signal_features['diff_pct_22'] = ((self.df['close'] / np.roll(self.df['close'], shift=(int(22)))) * 100) - 100
 
-        signal_features = signal_features.drop(columns=['open', 'high', 'low', 'close', 'volume', 'tradecount'])
-        signal_features = signal_features.dropna()
+        # signal_features = signal_features.drop(columns=['open', 'high', 'low', 'close', 'volume', 'tradecount'])
+        # signal_features = signal_features.dropna()
 
         signal_features.reset_index(drop=True, inplace=True)
 
@@ -504,7 +502,6 @@ class CryptoTradingEnv(gym.Env):
         '''
         # self.indicators_to_use = ['SMA', 'MACD', 'MACD_signal_line', 'EMA', 'kc_middle', 'kc_upper', 'kc_lower', 'RSI', 'close_prev', 'MOM', 'VHF', 'TRIX', 'ROCV']
         # self.indicators_to_use = ['MACD', 'MACD_signal_line', 'MOM', 'VHF', 'TRIX']
-        self.indicators_to_use = ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']
         indicators_column_to_filter = np.setdiff1d(signal_features.columns, self.indicators_to_use, assume_unique=True)
         filtered_signal_feature = signal_features.drop(columns=indicators_column_to_filter)
 
@@ -534,3 +531,4 @@ class CryptoTradingEnv(gym.Env):
                 profit[i][j] = max(profit[i - 1][j], max_so_far)
 
         return profit[n - 1][k]
+
