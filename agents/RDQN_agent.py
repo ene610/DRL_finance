@@ -1,11 +1,11 @@
-import os
-import torch as T
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import numpy as np
-import gym
-from gym import wrappers
+import sys
+from typing import Dict, List, Tuple
+
+
+import collections
+
+
+import torch
 
 import os
 import torch as T
@@ -14,12 +14,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
 import random
-import collections
-import sys
-from typing import Dict, List, Tuple
 
-def convert_obs(obs,obs_size):
-  return obs.reshape(1,obs_size)
 
 class DeepQNetwork(nn.Module):
     def __init__(self, lr, n_actions, name, input_dims, chkpt_dir):
@@ -91,6 +86,7 @@ class DeepQNetwork(nn.Module):
         print('... loading checkpoint ...')
         self.load_state_dict(T.load(self.checkpoint_file))
 
+
 class EpisodeBuffer:
     """A simple numpy replay buffer."""
 
@@ -116,11 +112,11 @@ class EpisodeBuffer:
         done = np.array(self.done)
 
         if random_update is True:
-            obs = obs[idx:idx+lookup_step]
-            action = action[idx:idx+lookup_step]
-            reward = reward[idx:idx+lookup_step]
-            next_obs = next_obs[idx:idx+lookup_step]
-            done = done[idx:idx+lookup_step]
+            obs = obs[idx:idx + lookup_step]
+            action = action[idx:idx + lookup_step]
+            reward = reward[idx:idx + lookup_step]
+            next_obs = next_obs[idx:idx + lookup_step]
+            done = done[idx:idx + lookup_step]
 
         return dict(obs=obs,
                     acts=action,
@@ -187,109 +183,259 @@ class EpisodeMemory():
     def __len__(self):
         return len(self.memory)
 
-    def train(self, env, id_str):
 
-        if True:
-            # env = make_env('CartPole-v1')
-            # env = gym.make('CartPole-v1')
-            best_score = -np.inf
-            load_checkpoint = False
-            n_episodes = 50
-            batch_size = 6
-            obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
-            agent = DQNAgent(gamma=0.99, epsilon=0.5, lr=0.0001,
-                             input_dims=obs_size,
-                             n_actions=env.action_space.n, mem_size=50000, eps_min=0.01,
-                             batch_size=batch_size, replace=1000, eps_dec=3e-5,
-                             chkpt_dir='/content/models/', algo='DQNAgent',
-                             env_name=id_str)
+class DRQNAgent(object):
+    def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
+                 mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
+                 replace=1000, algo=None, env_name=None, chkpt_dir='tmp/dqn', random_update=True):
+        self.gamma = gamma
+        self.epsilon = epsilon
+        self.lr = lr
+        self.n_actions = n_actions
+        self.input_dims = input_dims
+        self.batch_size = batch_size
+        self.eps_min = eps_min
+        self.eps_dec = eps_dec
+        self.replace_target_cnt = replace
+        self.algo = algo
+        self.env_name = env_name
+        self.chkpt_dir = chkpt_dir
+        self.action_space = [i for i in range(n_actions)]
+        self.learn_step_counter = 0
+        self.batch_size = batch_size
+        # random_update = True
+        self.random_update = random_update
+        ###########
 
-            # batch_size = 8
-            learning_rate = 1e-3
-            buffer_len = int(100000)
-            min_epi_num = 16  # Start moment to train the Q network
-            episodes = 650
-            print_per_iter = 20
-            target_update_period = 4
-            eps_start = 0.1
-            eps_end = 0.001
-            eps_decay = 0.995
-            tau = 1e-2
-            max_step = 2000
+        learning_rate = 1e-3
+        buffer_len = int(100000)
+        min_epi_num = 16  # Start moment to train the Q network
+        episodes = 650
+        print_per_iter = 20
+        target_update_period = 4
+        eps_start = 0.1
+        eps_end = 0.001
+        eps_decay = 0.995
+        tau = 1e-2
+        max_step = 5000
 
-            if load_checkpoint:
-                agent.load_models()
+        # DRQN param
+        random_update = True  # If you want to do random update instead of sequential update
+        lookup_step = 10  # If you want to do random update instead of sequential update
+        max_epi_len = 3000
+        max_epi_step = max_step
+        device = "cpu"
 
-            n_steps = 0
-            scores, eps_history, steps_array = [], [], []
+        obs_shape = input_dims
+        # Create Q functions
 
-            for episode in range(n_episodes):
-                done = False
+        self.q_eval = DeepQNetwork(self.lr, self.n_actions,
+                                   input_dims=self.input_dims,
+                                   name=self.env_name + '_' + self.algo + '_q_eval',
+                                   chkpt_dir=self.chkpt_dir)
 
-                observation = env.reset()
-                h, c = agent.q_eval.init_hidden_state(batch_size=batch_size, training=False)
-                observation = convert_obs(observation, obs_size)
-                # print(observation.shape)
-                # input()
-                steps = 0
-                score = 0
+        self.q_next = DeepQNetwork(self.lr, self.n_actions,
+                                   input_dims=self.input_dims,
+                                   name=self.env_name + '_' + self.algo + '_q_next',
+                                   chkpt_dir=self.chkpt_dir)
 
-                while not done:
-                    # print("!")
-                    action, h, c = agent.choose_action(observation, h, c)
-                    observation_, reward, done, info = env.step(action)
-                    observation_ = convert_obs(observation_, obs_size)
-                    agent.store_transition([observation, action, reward, observation_, done])
-                    # observation = convert_obs(observation_,obs_size)
-                    score += reward
-                    observation = observation_
-                    n_steps += 1
-                    steps += 1
-                    if not load_checkpoint and episode > 13:
-                        agent.learn()
+        self.q_next.load_state_dict(self.q_eval.state_dict())
 
-                agent.store_episode()
-                agent.reset_buffer()
+        ###########
 
-                scores.append(score)
-                steps_array.append(n_steps)
+        max_epi_len = 1200
+        lookup_step = 8
+        self.episode_memory = EpisodeMemory(random_update=random_update,
+                                            max_epi_num=100, max_epi_len=max_epi_len,
+                                            batch_size=batch_size,
+                                            lookup_step=lookup_step)
 
-                avg_scores = np.average(scores)
-                print('episode: ', episode, 'score: ', score, ' average score %.1f' % avg_scores,
-                      'best score %.2f' % best_score, 'epsilon %.2f' % agent.epsilon, 'steps', n_steps)
+        self.episode_buffer = EpisodeBuffer()
 
-                eps_history.append(agent.epsilon)
+    def choose_action(self, observation, h, c):
 
-        return env
+        state = T.tensor([observation], dtype=T.float).to(self.q_eval.device)
+        actions, h, c = self.q_eval.forward(state, h, c)
+
+        if np.random.random() > self.epsilon:
+            action = T.argmax(actions).item()
+        else:
+            action = np.random.choice(self.action_space)
+
+        return action, h, c
+
+    def store_episode(self):
+        self.episode_memory.put(self.episode_buffer)
+
+    def store_transition(self, transition):
+        self.episode_buffer.put(transition)
+
+    def reset_buffer(self):
+        self.episode_buffer = EpisodeBuffer()
+
+    def sample_memory(self):
+        # TODO modifica
+        state, action, reward, new_state, done = \
+            self.memory.sample_buffer(self.batch_size)
+
+        states = T.tensor(state).to(self.q_eval.device)
+        rewards = T.tensor(reward).to(self.q_eval.device)
+        dones = T.tensor(done).to(self.q_eval.device)
+        actions = T.tensor(action).to(self.q_eval.device)
+        states_ = T.tensor(new_state).to(self.q_eval.device)
+
+        return states, actions, rewards, states_, dones
+
+    def replace_target_network(self):
+        if self.learn_step_counter % self.replace_target_cnt == 0:
+            self.q_next.load_state_dict(self.q_eval.state_dict())
+
+    def decrement_epsilon(self):
+        self.epsilon = self.epsilon - self.eps_dec \
+            if self.epsilon > self.eps_min else self.eps_min
+
+    def save_models(self):
+        self.q_eval.save_checkpoint()
+        self.q_next.save_checkpoint()
+
+    def load_models(self):
+        self.q_eval.load_checkpoint()
+        self.q_next.load_checkpoint()
+
+    def learn(self,
+              device="cpu",
+              learning_rate=1e-3,
+              gamma=0.99):
+
+        assert device is not None, "None Device input: device should be selected."
+
+        q_net = self.q_eval
+        target_q_net = self.q_next
+        episode_memory = self.episode_memory
+        optimizer = self.q_eval.optimizer
+
+        # Get batch from replay buffer
+        samples, seq_len = episode_memory.sample()
+        batch_size = self.batch_size
+        observations = []
+        actions = []
+        rewards = []
+        next_observations = []
+        dones = []
+
+        for i in range(batch_size):
+            observations.append(samples[i]["obs"])
+            actions.append(samples[i]["acts"])
+            rewards.append(samples[i]["rews"])
+            next_observations.append(samples[i]["next_obs"])
+            dones.append(samples[i]["done"])
+
+        observations = np.array(observations)
+        actions = np.array(actions)
+        rewards = np.array(rewards)
+        next_observations = np.array(next_observations)
+        dones = np.array(dones)
+
+        observations = torch.FloatTensor(observations.reshape(batch_size, seq_len, -1)).to(device)
+        actions = torch.LongTensor(actions.reshape(batch_size, seq_len, -1)).to(device)
+        rewards = torch.FloatTensor(rewards.reshape(batch_size, seq_len, -1)).to(device)
+        next_observations = torch.FloatTensor(next_observations.reshape(batch_size, seq_len, -1)).to(device)
+        dones = torch.FloatTensor(dones.reshape(batch_size, seq_len, -1)).to(device)
+
+        h_target, c_target = target_q_net.init_hidden_state(batch_size=batch_size, training=True)
+
+        q_target, _, _ = target_q_net(next_observations, h_target.to(device), c_target.to(device))
+
+        q_target_max = q_target.max(2)[0].view(batch_size, seq_len, -1).detach()
+        targets = rewards + gamma * q_target_max * dones
+
+        h, c = q_net.init_hidden_state(batch_size=batch_size, training=True)
+        q_out, _, _ = q_net(observations, h.to(device), c.to(device))
+        q_a = q_out.gather(2, actions)  # forse mettere 3
+
+        # Multiply Importance Sampling weights to loss
+        loss = F.smooth_l1_loss(q_a, targets)
+
+        # Update Network
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        self.decrement_epsilon()
+
+    def convert_obs(self, obs, obs_size):
+        return obs.reshape(1, obs_size)
 
     def eval(self, env):
 
         env.reset()
-        load_checkpoint = True
-        n_episodes = 1
-        n_steps = 0
-        agent = self.agent
-        agent.epsilon = 0
-
+        self.epsilon = 0
+        obs_size = self.input_dims
         for i in range(1):
             done = False
             observation = env.reset()
             # print(observation.shape)
-            obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
-            observation = convert_obs(observation, obs_size)
-            h, c = agent.q_eval.init_hidden_state(batch_size=batch_size, training=False)
+            observation = self.convert_obs(observation, obs_size)
+            h, c = self.q_eval.init_hidden_state(batch_size=self.batch_size, training=False)
+
+            while not done:
+                action, h, c = self.choose_action(observation, h, c)
+                observation_, reward, done, info = env.step(action)
+                observation_ = self.convert_obs(observation_, obs_size)
+                observation = observation_
+
+        return env
+
+    def train(self, env):
+        obs_size = self.input_dims
+        best_score = -np.inf
+        n_steps = 0
+        scores, eps_history, steps_array = [], [], []
+        n_episodes = 50
+        batch_size = self.batch_size
+        load_checkpoint = False
+        for episode in range(n_episodes):
+            done = False
+
+            observation = env.reset()
+            h, c = self.q_eval.init_hidden_state(batch_size=batch_size, training=False)
+            observation = self.convert_obs(observation, obs_size)
+            # print(observation.shape)
+            # input()
             steps = 0
             score = 0
+
             while not done:
-                action, h, c = agent.choose_action(observation, h, c)
+                action, h, c = self.choose_action(observation, h, c)
                 observation_, reward, done, info = env.step(action)
-                observation_ = convert_obs(observation_, obs_size)
-
+                observation_ = self.convert_obs(observation_, obs_size)
+                self.store_transition([observation, action, reward, observation_, done])
+                # observation = convert_obs(observation_,obs_size)
                 score += reward
-
                 observation = observation_
                 n_steps += 1
                 steps += 1
+                if not load_checkpoint and episode > 13:
+                    self.learn()
 
-        env.render_all()
-        return env
+            self.store_episode()
+            self.reset_buffer()
+
+            scores.append(score)
+            steps_array.append(n_steps)
+
+            avg_scores = np.average(scores)
+            print('episode: ', episode, 'score: ', score, ' average score %.1f' % avg_scores,
+                  'best score %.2f' % best_score, 'epsilon %.2f' % self.epsilon, 'steps', n_steps)
+
+            eps_history.append(self.epsilon)
+
+#batch_size = 6
+#obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
+#agent = DRQNAgent(gamma=0.99, epsilon=0.5, lr=0.0001,
+#                     input_dims = obs_size,
+#                     n_actions=env.action_space.n, mem_size=50000, eps_min=0.01,
+#                     batch_size=batch_size, replace=1000, eps_dec=3e-5,
+#                     chkpt_dir='/content/models/', algo='DQNAgent',
+#                     env_name=id_str)
+
+#agent.train(env)

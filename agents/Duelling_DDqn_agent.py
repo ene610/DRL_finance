@@ -218,22 +218,15 @@ class DuelingDDQNAgent(object):
         self.q_eval.load_checkpoint()
         self.q_next.load_checkpoint()
 
-    def convert_obs(obs, obs_size):
+    def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
 
-    def train(self, env, id_str):
+    def train(self, env):
 
         best_score = -np.inf
         load_checkpoint = False
-        n_games = 50
-        obs_size = (env.observation_space.shape[0] * env.observation_space.shape[1],)
-
-        self.agent = DuelingDDQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
-                                 input_dims=(obs_size),
-                                 n_actions=env.action_space.n, mem_size=50000, eps_min=0.1,
-                                 batch_size=32, replace=10000, eps_dec=1e-5,
-                                 chkpt_dir='/content/models/', algo='DuelingDDQNAgent',
-                                 env_name=id_str)
+        n_episodes = 50
+        obs_size = self.input_dims
 
         if load_checkpoint:
             self.agent.load_models()
@@ -241,21 +234,21 @@ class DuelingDDQNAgent(object):
         n_steps = 0
         scores, eps_history, steps_array = [], [], []
 
-        for i in range(n_games):
+        for i in range(n_episodes):
             done = False
             observation = env.reset()
             observation = self.convert_obs(observation, obs_size)
             steps = 0
             score = 0
             while not done:
-                action = self.agent.choose_action(observation)
+                action = self.choose_action(observation)
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, obs_size)
                 score += reward
 
                 if not load_checkpoint:
-                    self.agent.store_transition(observation, action, reward, observation_, done)
-                    self.agent.learn()
+                    self.store_transition(observation, action, reward, observation_, done)
+                    self.learn()
 
                 observation = observation_
                 n_steps += 1
@@ -266,9 +259,9 @@ class DuelingDDQNAgent(object):
 
             avg_scores = np.average(scores)
             print('episode: ', i, 'score: ', score, ' average score %.1f' % avg_scores, 'best score %.2f' % best_score,
-                  'epsilon %.2f' % self.agent.epsilon, 'steps', n_steps)
+                  'epsilon %.2f' % self.epsilon, 'steps', n_steps)
 
-            eps_history.append(self.agent.epsilon)
+            eps_history.append(self.epsilon)
 
         return env
 
@@ -276,13 +269,23 @@ class DuelingDDQNAgent(object):
 
         done = False
         observation = env.reset()
-        obs_size = (env.observation_space.shape[0] * env.observation_space.shape[1],)
+        obs_size = self.input_dims
         observation = self.convert_obs(observation, obs_size)
 
         while not done:
-            action = self.agent.choose_action(observation)
+            action = self.choose_action(observation)
             observation_, reward, done, info = env.step(action)
             observation_ = self.convert_obs(observation_, obs_size)
             observation = observation_
 
         return env
+
+#obs_size = (env.observation_space.shape[0] * env.observation_space.shape[1],)
+#agent =DuelingDDQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
+#                                 input_dims=(obs_size),
+#                                 n_actions=env.action_space.n, mem_size=50000, eps_min=0.1,
+#                                 batch_size=32, replace=10000, eps_dec=1e-5,
+#                                 chkpt_dir='/content/models/', algo='DuelingDDQNAgent',
+#                                 env_name=id_str)
+
+#agent.train(env)

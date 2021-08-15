@@ -8,7 +8,6 @@ import gym
 from gym import wrappers
 
 
-
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions):
         self.mem_size = max_size
@@ -43,6 +42,7 @@ class ReplayBuffer(object):
 
         return states, actions, rewards, states_, terminal
 
+
 class DeepQNetwork(nn.Module):
     def __init__(self, lr, n_actions, name, input_dims, chkpt_dir):
         super(DeepQNetwork, self).__init__()
@@ -59,10 +59,10 @@ class DeepQNetwork(nn.Module):
         self.fc5 = nn.Linear(numberOfNeurons, n_actions)
 
         # Definition of some Batch Normalization layers
-        #self.bn1 = nn.BatchNorm1d(numberOfNeurons)
-        #self.bn2 = nn.BatchNorm1d(numberOfNeurons)
-        #self.bn3 = nn.BatchNorm1d(numberOfNeurons)
-        #self.bn4 = nn.BatchNorm1d(numberOfNeurons)
+        # self.bn1 = nn.BatchNorm1d(numberOfNeurons)
+        # self.bn2 = nn.BatchNorm1d(numberOfNeurons)
+        # self.bn3 = nn.BatchNorm1d(numberOfNeurons)
+        # self.bn4 = nn.BatchNorm1d(numberOfNeurons)
 
         # Definition of some Dropout layers.
         self.dropout1 = nn.Dropout(dropout)
@@ -84,16 +84,15 @@ class DeepQNetwork(nn.Module):
         self.to(self.device)
 
     def forward(self, state):
+        # x = self.dropout1(F.leaky_relu(self.bn1(self.fc1(state))))
+        # x = self.dropout2(F.leaky_relu(self.bn2(self.fc2(x))))
+        # x = self.dropout3(F.leaky_relu(self.bn3(self.fc3(x))))
+        # x = self.dropout4(F.leaky_relu(self.bn4(self.fc4(x))))
 
-        #x = self.dropout1(F.leaky_relu(self.bn1(self.fc1(state))))
-        #x = self.dropout2(F.leaky_relu(self.bn2(self.fc2(x))))
-        #x = self.dropout3(F.leaky_relu(self.bn3(self.fc3(x))))
-        #x = self.dropout4(F.leaky_relu(self.bn4(self.fc4(x))))
-
-        #x = self.dropout1(F.leaky_relu(self.fc1(state)))
-        #x = self.dropout2(F.leaky_relu(self.fc2(x)))
-        #x = self.dropout3(F.leaky_relu(self.fc3(x)))
-        #x = self.dropout4(F.leaky_relu(self.fc4(x)))
+        # x = self.dropout1(F.leaky_relu(self.fc1(state)))
+        # x = self.dropout2(F.leaky_relu(self.fc2(x)))
+        # x = self.dropout3(F.leaky_relu(self.fc3(x)))
+        # x = self.dropout4(F.leaky_relu(self.fc4(x)))
 
         x = F.leaky_relu(self.fc1(state))
         x = F.leaky_relu(self.fc2(x))
@@ -112,7 +111,9 @@ class DeepQNetwork(nn.Module):
         print('... loading checkpoint ...')
         self.load_state_dict(T.load(self.checkpoint_file))
 
+
 class DQNAgent(object):
+
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
                  replace=1000, algo=None, env_name=None, chkpt_dir='tmp/dqn'):
@@ -134,18 +135,18 @@ class DQNAgent(object):
         self.memory = ReplayBuffer(mem_size, input_dims, n_actions)
 
         self.q_eval = DeepQNetwork(self.lr, self.n_actions,
-                                    input_dims=self.input_dims,
-                                    name=self.env_name+'_'+self.algo+'_q_eval',
-                                    chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims,
+                                   name=self.env_name + '_' + self.algo + '_q_eval',
+                                   chkpt_dir=self.chkpt_dir)
 
         self.q_next = DeepQNetwork(self.lr, self.n_actions,
-                                    input_dims=self.input_dims,
-                                    name=self.env_name+'_'+self.algo+'_q_next',
-                                    chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims,
+                                   name=self.env_name + '_' + self.algo + '_q_next',
+                                   chkpt_dir=self.chkpt_dir)
 
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
-            state = T.tensor([observation],dtype=T.float).to(self.q_eval.device)
+            state = T.tensor([observation], dtype=T.float).to(self.q_eval.device)
             actions = self.q_eval.forward(state)
             action = T.argmax(actions).item()
         else:
@@ -158,7 +159,7 @@ class DQNAgent(object):
 
     def sample_memory(self):
         state, action, reward, new_state, done = \
-                                self.memory.sample_buffer(self.batch_size)
+            self.memory.sample_buffer(self.batch_size)
 
         states = T.tensor(state).to(self.q_eval.device)
         rewards = T.tensor(reward).to(self.q_eval.device)
@@ -174,7 +175,7 @@ class DQNAgent(object):
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec \
-                           if self.epsilon > self.eps_min else self.eps_min
+            if self.epsilon > self.eps_min else self.eps_min
 
     def save_models(self):
         self.q_eval.save_checkpoint()
@@ -199,7 +200,7 @@ class DQNAgent(object):
         q_next = self.q_next.forward(states_).max(dim=1)[0]
 
         q_next[dones] = 0.0
-        q_target = rewards + self.gamma*q_next
+        q_target = rewards + self.gamma * q_next
 
         loss = self.q_eval.loss(q_target, q_pred).to(self.q_eval.device)
         loss.backward()
@@ -208,86 +209,76 @@ class DQNAgent(object):
 
         self.decrement_epsilon()
 
-    def convert_obs(obs, obs_size):
+    def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
 
-    def train(self,env,id_str):
+    def train(self, env):
 
-            best_score = -np.inf
-            load_checkpoint = False
-            n_episodes = 10
-            obs_size = (env.observation_space.shape[0] * env.observation_space.shape[1],)
-            self.agent = DQNAgent(gamma=0.99, epsilon=0.5, lr=0.0001,
-                             input_dims=(obs_size),
-                             n_actions=env.action_space.n, mem_size=50000, eps_min=0.01,
-                             batch_size=32, replace=1000, eps_dec=1e-5,
-                             chkpt_dir='/content/models/', algo='DQNAgent',
-                             env_name=id_str)
+        best_score = -np.inf
+        load_checkpoint = False
+        n_episodes = 10
+        obs_size = self.input_dims
 
-            if load_checkpoint:
-                self.agent.load_models()
+        if load_checkpoint:
+            self.load_models()
 
-            n_steps = 0
-            scores, eps_history, steps_array = [], [], []
-
-            for i in range(n_episodes):
-                done = False
-                observation = env.reset()
-                observation = self.convert_obs(observation, obs_size)
-                steps = 0
-                score = 0
-                while not done:
-                    action = self.agent.choose_action(observation)
-                    observation_, reward, done, info = env.step(action)
-                    observation_ = self.convert_obs(observation_, obs_size)
-                    observation = self.convert_obs(observation_, obs_size)
-                    score += reward
-
-                    if not load_checkpoint:
-                        self.agent.store_transition(observation, action, reward, observation_, done)
-                        self.agent.learn()
-                    observation = observation_
-                    n_steps += 1
-                    steps += 1
-                scores.append(score)
-                steps_array.append(n_steps)
-
-                avg_scores = np.average(scores)
-                print('episode: ', i, 'score: ', score, ' average score %.1f' % avg_scores,
-                      'best score %.2f' % best_score, 'epsilon %.2f' % self.agent.epsilon, 'steps', n_steps)
-
-                eps_history.append(self.agent.epsilon)
-            return env
-
-    def eval(self,env):
-
-        env.reset()
-        load_checkpoint = True
-        n_episodes = 1
         n_steps = 0
-        self.agent.epsilon = 0
-        #TODO manca save and load
-        obs_size = (env.observation_space.shape[0] * env.observation_space.shape[1],)
+        scores, eps_history, steps_array = [], [], []
+
         for i in range(n_episodes):
             done = False
             observation = env.reset()
+            observation = self.convert_obs(observation, obs_size)
+            steps = 0
+            score = 0
             while not done:
-                observation = self.convert_obs(observation, obs_size)
-                action = self.agent.choose_action(observation)
+                action = self.choose_action(observation)
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, obs_size)
+                # observation = self.convert_obs(observation_, obs_size)
+                score += reward
+
+                if not load_checkpoint:
+                    self.store_transition(observation, action, reward, observation_, done)
+                    self.learn()
                 observation = observation_
                 n_steps += 1
+                steps += 1
+            scores.append(score)
+            steps_array.append(n_steps)
+
+            avg_scores = np.average(scores)
+            print('episode: ', i, 'score: ', score, ' average score %.1f' % avg_scores,
+                  'best score %.2f' % best_score, 'epsilon %.2f' % self.epsilon, 'steps', n_steps)
+
+            eps_history.append(self.epsilon)
+        return env
+
+    def eval(self, env):
+
+        env.reset()
+        load_checkpoint = True
+
+        self.epsilon = 0
+        # TODO manca save and load
+        obs_size = self.input_dims
+        done = False
+        observation = env.reset()
+        observation = self.convert_obs(observation, obs_size)
+        while not done:
+            action = self.choose_action(observation)
+            observation_, reward, done, info = env.step(action)
+            observation_ = self.convert_obs(observation_, obs_size)
+            observation = observation_
 
         return env
 
+#obs_size = (env.observation_space.shape[0] * env.observation_space.shape[1],)
+#agent =DQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
+#                                 input_dims=(obs_size),
+#                                 n_actions=env.action_space.n, mem_size=50000, eps_min=0.1,
+#                                 batch_size=32, replace=10000, eps_dec=1e-5,
+#                                 chkpt_dir='/content/models/', algo='DuelingDDQNAgent',
+#                                 env_name=id_str)
 
-
-
-
-
-
-
-
-
-
+#agent.train(env)

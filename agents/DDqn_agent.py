@@ -8,6 +8,7 @@ import gym
 import numpy as np
 from gym import wrappers
 
+
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions):
         self.mem_size = max_size
@@ -42,6 +43,7 @@ class ReplayBuffer(object):
 
         return states, actions, rewards, states_, terminal
 
+
 class DeepQNetwork(nn.Module):
     def __init__(self, lr, n_actions, name, input_dims, chkpt_dir):
         super(DeepQNetwork, self).__init__()
@@ -51,7 +53,7 @@ class DeepQNetwork(nn.Module):
         numberOfNeurons = 512
         dropout = 0.1
 
-        self.fc1 = nn.Linear(input_dims[0], numberOfNeurons)
+        self.fc1 = nn.Linear(input_dims, numberOfNeurons)
         self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
         self.fc3 = nn.Linear(numberOfNeurons, numberOfNeurons)
         self.fc4 = nn.Linear(numberOfNeurons, numberOfNeurons)
@@ -110,6 +112,7 @@ class DeepQNetwork(nn.Module):
         print('... loading checkpoint ...')
         self.load_state_dict(T.load(self.checkpoint_file))
 
+
 class DDQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
@@ -129,23 +132,23 @@ class DDQNAgent(object):
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
 
-        self.memory = ReplayBuffer(mem_size, input_dims, n_actions)
+        self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions)
 
         self.q_eval = DeepQNetwork(self.lr, self.n_actions,
-                                    input_dims=self.input_dims,
-                                    name=self.env_name+'_'+self.algo+'_q_eval',
-                                    chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims,
+                                   name=self.env_name + '_' + self.algo + '_q_eval',
+                                   chkpt_dir=self.chkpt_dir)
         self.q_next = DeepQNetwork(self.lr, self.n_actions,
-                                    input_dims=self.input_dims,
-                                    name=self.env_name+'_'+self.algo+'_q_next',
-                                    chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims,
+                                   name=self.env_name + '_' + self.algo + '_q_next',
+                                   chkpt_dir=self.chkpt_dir)
 
     def store_transition(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
 
     def sample_memory(self):
         state, action, reward, new_state, done = \
-                                self.memory.sample_buffer(self.batch_size)
+            self.memory.sample_buffer(self.batch_size)
 
         states = T.tensor(state).to(self.q_eval.device)
         rewards = T.tensor(reward).to(self.q_eval.device)
@@ -157,7 +160,7 @@ class DDQNAgent(object):
 
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
-            state = T.tensor([observation],dtype=T.float).to(self.q_eval.device)
+            state = T.tensor([observation], dtype=T.float).to(self.q_eval.device)
             actions = self.q_eval.forward(state)
             action = T.argmax(actions).item()
         else:
@@ -167,12 +170,12 @@ class DDQNAgent(object):
 
     def replace_target_network(self):
         if self.replace_target_cnt is not None and \
-           self.learn_step_counter % self.replace_target_cnt == 0:
+                self.learn_step_counter % self.replace_target_cnt == 0:
             self.q_next.load_state_dict(self.q_eval.state_dict())
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec \
-                           if self.epsilon > self.eps_min else self.eps_min
+            if self.epsilon > self.eps_min else self.eps_min
 
     def learn(self):
         if self.memory.mem_cntr < self.batch_size:
@@ -193,7 +196,7 @@ class DDQNAgent(object):
         max_actions = T.argmax(q_eval, dim=1)
         q_next[dones] = 0.0
 
-        q_target = rewards + self.gamma*q_next[indices, max_actions]
+        q_target = rewards + self.gamma * q_next[indices, max_actions]
         loss = self.q_eval.loss(q_target, q_pred).to(self.q_eval.device)
         loss.backward()
 
@@ -210,28 +213,21 @@ class DDQNAgent(object):
         self.q_eval.load_checkpoint()
         self.q_next.load_checkpoint()
 
-    def convert_obs(obs, obs_size):
+    def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
 
-    def train(self, env, id_str):
+    def train(self, env):
         best_score = -np.inf
         load_checkpoint = False
-        n_games = 50
-        obs_size = (env.observation_space.shape[0] * env.observation_space.shape[1],)
-        self.agent = DDQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
-                          input_dims=(obs_size),
-                          n_actions=env.action_space.n, mem_size=50000, eps_min=0.1,
-                          batch_size=32, replace=10000, eps_dec=1e-5,
-                          chkpt_dir='/content/models/', algo='DDQNAgent',
-                          env_name=id_str)
+        n_episodes = 50
 
         if load_checkpoint:
             self.agent.load_models()
 
         n_steps = 0
         scores, eps_history, steps_array = [], [], []
-
-        for i in range(n_games):
+        obs_size = self.input_dims
+        for i in range(n_episodes):
 
             done = False
             observation = env.reset()
@@ -240,14 +236,14 @@ class DDQNAgent(object):
             score = 0
 
             while not done:
-                action = self.agent.choose_action(observation)
+                action = self.choose_action(observation)
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, obs_size)
                 score += reward
 
                 if not load_checkpoint:
-                    self.agent.store_transition(observation, action, reward, observation_, done)
-                    self.agent.learn()
+                    self.store_transition(observation, action, reward, observation_, done)
+                    self.learn()
 
                 observation = observation_
                 n_steps += 1
@@ -258,27 +254,35 @@ class DDQNAgent(object):
 
             avg_scores = np.average(scores)
             print('episode: ', i, 'score: ', score, ' average score %.1f' % avg_scores, 'best score %.2f' % best_score,
-                  'epsilon %.2f' % self.agent.epsilon, 'steps', n_steps)
+                  'epsilon %.2f' % self.epsilon, 'steps', n_steps)
 
-            eps_history.append(self.agent.epsilon)
+            eps_history.append(self.epsilon)
 
         return env
 
     def eval(self, env):
 
-            self.agent.epsilon = 0
-            obs_size = (env.observation_space.shape[0] * env.observation_space.shape[1],)
+        self.epsilon = 0
+        obs_size = self.input_dims
 
-            done = False
-            observation = env.reset()
-            observation = self.convert_obs(observation, obs_size)
+        done = False
+        observation = env.reset()
+        observation = self.convert_obs(observation, obs_size)
 
-            while not done:
-                    action = self.agent.choose_action(observation)
-                    observation_, reward, done, info = env.step(action)
-                    observation_ = self.convert_obs(observation_, obs_size)
-                    observation = observation_
+        while not done:
+            action = self.choose_action(observation)
+            observation_, reward, done, info = env.step(action)
+            observation_ = self.convert_obs(observation_, obs_size)
+            observation = observation_
 
-            return env
+        return env
 
+#obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
+#agent =DDQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
+#                                 input_dims=(obs_size),
+#                                 n_actions=env.action_space.n, mem_size=50000, eps_min=0.1,
+#                                 batch_size=32, replace=10000, eps_dec=1e-5,
+#                                 chkpt_dir='/content/models/', algo='DuelingDDQNAgent',
+#                                 env_name=id_str)
 
+#agent.train(env)
