@@ -1,12 +1,10 @@
-import os
 import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import numpy as np
-import gym
-from gym import wrappers
-
+import os
+import shutil
 
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions):
@@ -103,13 +101,13 @@ class DeepQNetwork(nn.Module):
 
         return action
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, path):
         print('... saving checkpoint ...')
-        T.save(self.state_dict(), self.checkpoint_file)
+        T.save(self.state_dict(), path)
 
-    def load_checkpoint(self):
+    def load_checkpoint(self, path):
         print('... loading checkpoint ...')
-        self.load_state_dict(T.load(self.checkpoint_file))
+        self.load_state_dict(T.load(path))
 
 
 class DQNAgent(object):
@@ -177,13 +175,13 @@ class DQNAgent(object):
         self.epsilon = self.epsilon - self.eps_dec \
             if self.epsilon > self.eps_min else self.eps_min
 
-    def save_models(self):
-        self.q_eval.save_checkpoint()
-        self.q_next.save_checkpoint()
+    def save_models(self, path):
+        self.q_eval.save_checkpoint(path + "/q_eval")
+        self.q_next.save_checkpoint(path + "/q_next")
 
-    def load_models(self):
-        self.q_eval.load_checkpoint()
-        self.q_next.load_checkpoint()
+    def load_models(self, path):
+        self.q_eval.load_checkpoint(path + "/q_eval")
+        self.q_next.load_checkpoint(path + "/q_next")
 
     def learn(self):
         if self.memory.mem_cntr < self.batch_size:
@@ -216,11 +214,8 @@ class DQNAgent(object):
 
         best_score = -np.inf
         load_checkpoint = False
-        n_episodes = 10
+        n_episodes = 100
         obs_size = self.input_dims
-
-        if load_checkpoint:
-            self.load_models()
 
         n_steps = 0
         scores, eps_history, steps_array = [], [], []
@@ -250,6 +245,16 @@ class DQNAgent(object):
             avg_scores = np.average(scores)
             print('episode: ', i, 'score: ', score, ' average score %.1f' % avg_scores,
                   'best score %.2f' % best_score, 'epsilon %.2f' % self.epsilon, 'steps', n_steps)
+
+            if i % 10 == 0:
+                path = os.getcwd()
+                dir = f"{path}/trained_agents/DQNAgent/BTC/episode{i}"
+                if os.path.exists(dir):
+                    shutil.rmtree(dir)
+                os.makedirs(dir)
+                self.chkpt_dir = dir
+                self.save_models(dir)
+
 
             eps_history.append(self.epsilon)
         return env

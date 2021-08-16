@@ -6,9 +6,13 @@ import torch.optim as optim
 import numpy as np
 import gym
 from gym import wrappers
+import os
+import shutil
+
 
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions):
+
         self.mem_size = max_size
         self.mem_cntr = 0
         self.state_memory = np.zeros((self.mem_size, *input_shape),
@@ -41,6 +45,7 @@ class ReplayBuffer(object):
 
         return states, actions, rewards, states_, terminal
 
+
 class DuelingDeepQNetwork(nn.Module):
     def __init__(self, lr, n_actions, name, input_dims, chkpt_dir):
         super(DuelingDeepQNetwork, self).__init__()
@@ -58,10 +63,10 @@ class DuelingDeepQNetwork(nn.Module):
         self.fc5 = nn.Linear(numberOfNeurons, numberOfNeurons)
 
         # Definition of some Batch Normalization layers
-        #self.bn1 = nn.BatchNorm1d(numberOfNeurons)
-        #self.bn2 = nn.BatchNorm1d(numberOfNeurons)
-        #self.bn3 = nn.BatchNorm1d(numberOfNeurons)
-        #self.bn4 = nn.BatchNorm1d(numberOfNeurons)
+        # self.bn1 = nn.BatchNorm1d(numberOfNeurons)
+        # self.bn2 = nn.BatchNorm1d(numberOfNeurons)
+        # self.bn3 = nn.BatchNorm1d(numberOfNeurons)
+        # self.bn4 = nn.BatchNorm1d(numberOfNeurons)
 
         # Definition of some Dropout layers.
         self.dropout1 = nn.Dropout(dropout)
@@ -85,9 +90,8 @@ class DuelingDeepQNetwork(nn.Module):
         self.to(self.device)
 
     def forward(self, state):
-
-        flat1 = F.relu(self.fc1(state))
-        flat2 = F.relu(self.fc2(flat1))
+        #flat1 = F.relu(self.fc1(state))
+        #flat2 = F.relu(self.fc2(flat1))
 
         x = F.leaky_relu(self.fc1(state))
         x = F.leaky_relu(self.fc2(x))
@@ -101,18 +105,19 @@ class DuelingDeepQNetwork(nn.Module):
 
         return V, A
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, path):
         print('... saving checkpoint ...')
-        T.save(self.state_dict(), self.checkpoint_file)
+        T.save(self.state_dict(), path)
 
-    def load_checkpoint(self):
+    def load_checkpoint(self, path):
         print('... loading checkpoint ...')
-        self.load_state_dict(T.load(self.checkpoint_file))
+        self.load_state_dict(T.load(path))
+
 
 class DuelingDDQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
-                 replace=1000,  algo=None, env_name=None, chkpt_dir='tmp/dqn'):
+                 replace=1000, algo=None, env_name=None, chkpt_dir='tmp/dqn'):
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
@@ -124,27 +129,27 @@ class DuelingDDQNAgent(object):
         self.replace_target_cnt = replace
         self.algo = algo
         self.env_name = env_name
-        self.chkpt_dir = chkpt_dir
+        self.chkpt_dir = "//trained_agents//DuelingDDQNAgent//BTC//"
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
 
         self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions)
 
         self.q_eval = DuelingDeepQNetwork(self.lr, self.n_actions,
-                        input_dims=self.input_dims,
-                        name=self.env_name+'_'+self.algo+'_q_eval',
-                        chkpt_dir=self.chkpt_dir)
+                                          input_dims=self.input_dims,
+                                          name=self.env_name + '_' + self.algo + '_q_eval',
+                                          chkpt_dir=self.chkpt_dir)
         self.q_next = DuelingDeepQNetwork(self.lr, self.n_actions,
-                        input_dims=self.input_dims,
-                        name=self.env_name+'_'+self.algo+'_q_next',
-                        chkpt_dir=self.chkpt_dir)
+                                          input_dims=self.input_dims,
+                                          name=self.env_name + '_' + self.algo + '_q_next',
+                                          chkpt_dir=self.chkpt_dir)
 
     def store_transition(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
 
     def sample_memory(self):
         state, action, reward, new_state, done = \
-                                self.memory.sample_buffer(self.batch_size)
+            self.memory.sample_buffer(self.batch_size)
 
         states = T.tensor(state).to(self.q_eval.device)
         rewards = T.tensor(reward).to(self.q_eval.device)
@@ -168,12 +173,12 @@ class DuelingDDQNAgent(object):
 
     def replace_target_network(self):
         if self.replace_target_cnt is not None and \
-           self.learn_step_counter % self.replace_target_cnt == 0:
+                self.learn_step_counter % self.replace_target_cnt == 0:
             self.q_next.load_state_dict(self.q_eval.state_dict())
 
     def decrement_epsilon(self):
         self.epsilon = self.epsilon - self.eps_dec \
-                           if self.epsilon > self.eps_min else self.eps_min
+            if self.epsilon > self.eps_min else self.eps_min
 
     def learn(self):
         if self.memory.mem_cntr < self.batch_size:
@@ -192,16 +197,16 @@ class DuelingDDQNAgent(object):
         V_s_eval, A_s_eval = self.q_eval.forward(states_)
 
         q_pred = T.add(V_s,
-                        (A_s - A_s.mean(dim=1, keepdim=True)))[indices, actions]
+                       (A_s - A_s.mean(dim=1, keepdim=True)))[indices, actions]
 
         q_next = T.add(V_s_, (A_s_ - A_s_.mean(dim=1, keepdim=True)))
 
-        q_eval = T.add(V_s_eval, (A_s_eval - A_s_eval.mean(dim=1,keepdim=True)))
+        q_eval = T.add(V_s_eval, (A_s_eval - A_s_eval.mean(dim=1, keepdim=True)))
 
         max_actions = T.argmax(q_eval, dim=1)
         q_next[dones] = 0.0
 
-        q_target = rewards + self.gamma*q_next[indices, max_actions]
+        q_target = rewards + self.gamma * q_next[indices, max_actions]
 
         loss = self.q_eval.loss(q_target, q_pred).to(self.q_eval.device)
         loss.backward()
@@ -210,13 +215,13 @@ class DuelingDDQNAgent(object):
 
         self.decrement_epsilon()
 
-    def save_models(self):
-        self.q_eval.save_checkpoint()
-        self.q_next.save_checkpoint()
+    def save_models(self, path):
+        self.q_eval.save_checkpoint(path + "/q_eval")
+        self.q_next.save_checkpoint(path + "/q_next")
 
-    def load_models(self):
-        self.q_eval.load_checkpoint()
-        self.q_next.load_checkpoint()
+    def load_models(self, path):
+        self.q_eval.load_checkpoint(path + "/q_eval")
+        self.q_next.load_checkpoint(path + "/q_next")
 
     def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
@@ -225,37 +230,42 @@ class DuelingDDQNAgent(object):
 
         best_score = -np.inf
         load_checkpoint = False
-        n_episodes = 1000
+        n_episodes = 100
         obs_size = self.input_dims
-
-        if load_checkpoint:
-            self.agent.load_models()
 
         n_steps = 0
         scores, eps_history, steps_array = [], [], []
 
         for i in range(n_episodes):
+
             done = False
             observation = env.reset()
             observation = self.convert_obs(observation, obs_size)
             steps = 0
             score = 0
+
             while not done:
                 action = self.choose_action(observation)
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, obs_size)
                 score += reward
-
-                if not load_checkpoint:
-                    self.store_transition(observation, action, reward, observation_, done)
-                    self.learn()
-
+                self.store_transition(observation, action, reward, observation_, done)
+                self.learn()
                 observation = observation_
                 n_steps += 1
                 steps += 1
 
             scores.append(score)
             steps_array.append(n_steps)
+
+            if i % 10 == 0:
+                path = os.getcwd()
+                dir = f"{path}/trained_agents/DuelingDDQNAgent/BTC/episode{i}"
+                if os.path.exists(dir):
+                    shutil.rmtree(dir)
+                os.makedirs(dir)
+                self.chkpt_dir = dir
+                self.save_models(dir)
 
             avg_scores = np.average(scores)
             print('episode: ', i, 'score: ', score, ' average score %.1f' % avg_scores, 'best score %.2f' % best_score,
@@ -271,6 +281,7 @@ class DuelingDDQNAgent(object):
         observation = env.reset()
         obs_size = self.input_dims
         observation = self.convert_obs(observation, obs_size)
+        self.epsilon = 0
 
         while not done:
             action = self.choose_action(observation)

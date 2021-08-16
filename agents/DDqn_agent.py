@@ -7,7 +7,8 @@ import numpy as np
 import gym
 import numpy as np
 from gym import wrappers
-
+import os
+import shutil
 
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions):
@@ -104,13 +105,13 @@ class DeepQNetwork(nn.Module):
 
         return action
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, path):
         print('... saving checkpoint ...')
-        T.save(self.state_dict(), self.checkpoint_file)
+        T.save(self.state_dict(), path)
 
-    def load_checkpoint(self):
+    def load_checkpoint(self, path):
         print('... loading checkpoint ...')
-        self.load_state_dict(T.load(self.checkpoint_file))
+        self.load_state_dict(T.load(path))
 
 
 class DDQNAgent(object):
@@ -205,13 +206,13 @@ class DDQNAgent(object):
 
         self.decrement_epsilon()
 
-    def save_models(self):
-        self.q_eval.save_checkpoint()
-        self.q_next.save_checkpoint()
+    def save_models(self, path):
+        self.q_eval.save_checkpoint(path + "/q_eval")
+        self.q_next.save_checkpoint(path + "/q_next")
 
-    def load_models(self):
-        self.q_eval.load_checkpoint()
-        self.q_next.load_checkpoint()
+    def load_models(self, path):
+        self.q_eval.load_checkpoint(path + "/q_eval")
+        self.q_next.load_checkpoint(path + "/q_next")
 
     def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
@@ -219,7 +220,7 @@ class DDQNAgent(object):
     def train(self, env):
         best_score = -np.inf
         load_checkpoint = False
-        n_episodes = 50
+        n_episodes = 100
 
         if load_checkpoint:
             self.agent.load_models()
@@ -258,6 +259,14 @@ class DDQNAgent(object):
 
             eps_history.append(self.epsilon)
 
+            if i % 10 == 0:
+                path = os.getcwd()
+                dir = f"{path}/trained_agents/DDQNAgent/BTC/episode{i}"
+                if os.path.exists(dir):
+                    shutil.rmtree(dir)
+                os.makedirs(dir)
+                self.chkpt_dir = dir
+                self.save_models(dir)
         return env
 
     def eval(self, env):
@@ -277,12 +286,12 @@ class DDQNAgent(object):
 
         return env
 
-#obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
-#agent =DDQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
+# obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
+# agent =DDQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
 #                                 input_dims=(obs_size),
 #                                 n_actions=env.action_space.n, mem_size=50000, eps_min=0.1,
 #                                 batch_size=32, replace=10000, eps_dec=1e-5,
 #                                 chkpt_dir='/content/models/', algo='DuelingDDQNAgent',
 #                                 env_name=id_str)
 
-#agent.train(env)
+# agent.train(env)
