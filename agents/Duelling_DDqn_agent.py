@@ -51,7 +51,7 @@ class DuelingDeepQNetwork(nn.Module):
         numberOfNeurons = 512
         dropout = 0.1
 
-        self.fc1 = nn.Linear(input_dims[0], numberOfNeurons)
+        self.fc1 = nn.Linear(input_dims, numberOfNeurons)
         self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
         self.fc3 = nn.Linear(numberOfNeurons, numberOfNeurons)
         self.fc4 = nn.Linear(numberOfNeurons, numberOfNeurons)
@@ -128,7 +128,7 @@ class DuelingDDQNAgent(object):
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
 
-        self.memory = ReplayBuffer(mem_size, input_dims, n_actions)
+        self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions)
 
         self.q_eval = DuelingDeepQNetwork(self.lr, self.n_actions,
                         input_dims=self.input_dims,
@@ -225,7 +225,7 @@ class DuelingDDQNAgent(object):
 
         best_score = -np.inf
         load_checkpoint = False
-        n_episodes = 50
+        n_episodes = 1000
         obs_size = self.input_dims
 
         if load_checkpoint:
@@ -280,12 +280,12 @@ class DuelingDDQNAgent(object):
 
         return env
 
-#obs_size = (env.observation_space.shape[0] * env.observation_space.shape[1],)
-#agent =DuelingDDQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
+# obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
+# agent =DuelingDDQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
 #                                 input_dims=(obs_size),
 #                                 n_actions=env.action_space.n, mem_size=50000, eps_min=0.1,
 #                                 batch_size=32, replace=10000, eps_dec=1e-5,
 #                                 chkpt_dir='/content/models/', algo='DuelingDDQNAgent',
 #                                 env_name=id_str)
 
-#agent.train(env)
+# agent.train(env)

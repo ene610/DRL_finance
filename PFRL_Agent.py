@@ -1,9 +1,5 @@
-from ShortLongCTE import CryptoTradingEnv
-import pfrl
+from env.ShortLongCTE import CryptoTradingEnv
 import torch
-import pandas as pd
-import numpy
-import numpy as np
 import gym
 import matplotlib.pyplot as plt
 import os
