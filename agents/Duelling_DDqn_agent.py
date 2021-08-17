@@ -93,10 +93,10 @@ class DuelingDeepQNetwork(nn.Module):
         #flat1 = F.relu(self.fc1(state))
         #flat2 = F.relu(self.fc2(flat1))
 
-        x = F.leaky_relu(self.fc1(state))
-        x = F.leaky_relu(self.fc2(x))
-        x = F.leaky_relu(self.fc3(x))
-        x = F.leaky_relu(self.fc4(x))
+        x = self.dropout1(F.leaky_relu(self.fc1(state)))
+        x = self.dropout2(F.leaky_relu(self.fc2(x)))
+        x = self.dropout3(F.leaky_relu(self.fc3(x)))
+        x = self.dropout4(F.leaky_relu(self.fc4(x)))
 
         flat = self.fc5(x)
 
@@ -282,7 +282,7 @@ class DuelingDDQNAgent(object):
         obs_size = self.input_dims
         observation = self.convert_obs(observation, obs_size)
         self.epsilon = 0
-
+        self.q_eval.eval()
         while not done:
             action = self.choose_action(observation)
             observation_, reward, done, info = env.step(action)

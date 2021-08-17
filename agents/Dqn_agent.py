@@ -92,10 +92,10 @@ class DeepQNetwork(nn.Module):
         # x = self.dropout3(F.leaky_relu(self.fc3(x)))
         # x = self.dropout4(F.leaky_relu(self.fc4(x)))
 
-        x = F.leaky_relu(self.fc1(state))
-        x = F.leaky_relu(self.fc2(x))
-        x = F.leaky_relu(self.fc3(x))
-        x = F.leaky_relu(self.fc4(x))
+        x = self.dropout1(F.leaky_relu(self.fc1(state)))
+        x = self.dropout2(F.leaky_relu(self.fc2(x)))
+        x = self.dropout3(F.leaky_relu(self.fc3(x)))
+        x = self.dropout4(F.leaky_relu(self.fc4(x)))
 
         action = self.fc5(x)
 
@@ -265,7 +265,7 @@ class DQNAgent(object):
         load_checkpoint = True
 
         self.epsilon = 0
-        # TODO manca save and load
+        self.q_eval.eval()
         obs_size = self.input_dims
         done = False
         observation = env.reset()

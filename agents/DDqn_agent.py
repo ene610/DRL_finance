@@ -91,15 +91,15 @@ class DeepQNetwork(nn.Module):
         # x = self.dropout3(F.leaky_relu(self.bn3(self.fc3(x))))
         # x = self.dropout4(F.leaky_relu(self.bn4(self.fc4(x))))
 
-        # x = self.dropout1(F.leaky_relu(self.fc1(state)))
-        # x = self.dropout2(F.leaky_relu(self.fc2(x)))
-        # x = self.dropout3(F.leaky_relu(self.fc3(x)))
-        # x = self.dropout4(F.leaky_relu(self.fc4(x)))
+        x = self.dropout1(F.leaky_relu(self.fc1(state)))
+        x = self.dropout2(F.leaky_relu(self.fc2(x)))
+        x = self.dropout3(F.leaky_relu(self.fc3(x)))
+        x = self.dropout4(F.leaky_relu(self.fc4(x)))
 
-        x = F.leaky_relu(self.fc1(state))
-        x = F.leaky_relu(self.fc2(x))
-        x = F.leaky_relu(self.fc3(x))
-        x = F.leaky_relu(self.fc4(x))
+        #x = F.leaky_relu(self.fc1(state))
+        #x = F.leaky_relu(self.fc2(x))
+        #x = F.leaky_relu(self.fc3(x))
+        #x = F.leaky_relu(self.fc4(x))
 
         action = self.fc5(x)
 
@@ -273,7 +273,7 @@ class DDQNAgent(object):
 
         self.epsilon = 0
         obs_size = self.input_dims
-
+        self.q_eval.eval()
         done = False
         observation = env.reset()
         observation = self.convert_obs(observation, obs_size)
