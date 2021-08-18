@@ -6,6 +6,12 @@ import numpy as np
 import os
 import shutil
 
+#prima si puliscono
+    #iper fuori
+    #var non usate cancella
+#random seed
+
+
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions):
         self.mem_size = max_size
@@ -30,6 +36,7 @@ class ReplayBuffer(object):
 
     def sample_buffer(self, batch_size):
         max_mem = min(self.mem_cntr, self.mem_size)
+        np.random.seed(self.seed)
         batch = np.random.choice(max_mem, batch_size, replace=False)
 
         states = self.state_memory[batch]
@@ -42,13 +49,8 @@ class ReplayBuffer(object):
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, n_actions, name, input_dims, chkpt_dir):
+    def __init__(self, lr, n_actions, input_dims,  numberOfNeurons = 512, dropout = 0.1):
         super(DeepQNetwork, self).__init__()
-        self.checkpoint_dir = chkpt_dir
-        self.checkpoint_file = os.path.join(self.checkpoint_dir, name)
-
-        numberOfNeurons = 512
-        dropout = 0.1
 
         self.fc1 = nn.Linear(input_dims, numberOfNeurons)
         self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
@@ -87,11 +89,6 @@ class DeepQNetwork(nn.Module):
         # x = self.dropout3(F.leaky_relu(self.bn3(self.fc3(x))))
         # x = self.dropout4(F.leaky_relu(self.bn4(self.fc4(x))))
 
-        # x = self.dropout1(F.leaky_relu(self.fc1(state)))
-        # x = self.dropout2(F.leaky_relu(self.fc2(x)))
-        # x = self.dropout3(F.leaky_relu(self.fc3(x)))
-        # x = self.dropout4(F.leaky_relu(self.fc4(x)))
-
         x = self.dropout1(F.leaky_relu(self.fc1(state)))
         x = self.dropout2(F.leaky_relu(self.fc2(x)))
         x = self.dropout3(F.leaky_relu(self.fc3(x)))
@@ -106,7 +103,7 @@ class DeepQNetwork(nn.Module):
         T.save(self.state_dict(), path)
 
     def load_checkpoint(self, path):
-        print('... loading checkpoint ...')
+        #print('... loading checkpoint ...')
         self.load_state_dict(T.load(path))
 
 
@@ -114,7 +111,8 @@ class DQNAgent(object):
 
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
-                 replace=1000, algo=None, env_name=None, chkpt_dir='tmp/dqn'):
+                 replace=1000, chkpt_dir='tmp/dqn', seed=1):
+
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
@@ -124,23 +122,21 @@ class DQNAgent(object):
         self.eps_min = eps_min
         self.eps_dec = eps_dec
         self.replace_target_cnt = replace
-        self.algo = algo
-        self.env_name = env_name
         self.chkpt_dir = chkpt_dir
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
+        self.seed = seed
 
+        #/trained_agent/nome_agent/coin/episodio
+        #{fuori                        }{interno}
         self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions)
 
         self.q_eval = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims,
-                                   name=self.env_name + '_' + self.algo + '_q_eval',
-                                   chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims)
 
         self.q_next = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims,
-                                   name=self.env_name + '_' + self.algo + '_q_next',
-                                   chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims)
+
 
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
@@ -175,13 +171,13 @@ class DQNAgent(object):
         self.epsilon = self.epsilon - self.eps_dec \
             if self.epsilon > self.eps_min else self.eps_min
 
-    def save_models(self, path):
-        self.q_eval.save_checkpoint(path + "/q_eval")
-        self.q_next.save_checkpoint(path + "/q_next")
+    def save_models(self, episode):
+        self.q_eval.save_checkpoint(self.chkpt_dir + f"/episode{episode}/q_eval")
+        self.q_next.save_checkpoint(self.chkpt_dir + f"/episode{episode}/q_next")
 
-    def load_models(self, path):
-        self.q_eval.load_checkpoint(path + "/q_eval")
-        self.q_next.load_checkpoint(path + "/q_next")
+    def load_models(self, episode):
+        self.q_eval.load_checkpoint(self.chkpt_dir + f"/episode{episode}/q_eval")
+        self.q_next.load_checkpoint(self.chkpt_dir + f"/episode{episode}/q_next")
 
     def learn(self):
         if self.memory.mem_cntr < self.batch_size:
@@ -210,15 +206,16 @@ class DQNAgent(object):
     def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
 
-    def train(self, env):
+    def train(self, env,  n_episodes=100, checkpoint_freq=10):
 
         best_score = -np.inf
         load_checkpoint = False
-        n_episodes = 100
         obs_size = self.input_dims
 
         n_steps = 0
         scores, eps_history, steps_array = [], [], []
+
+
 
         for i in range(n_episodes):
             done = False
@@ -230,12 +227,10 @@ class DQNAgent(object):
                 action = self.choose_action(observation)
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, obs_size)
-                # observation = self.convert_obs(observation_, obs_size)
                 score += reward
-
-                if not load_checkpoint:
-                    self.store_transition(observation, action, reward, observation_, done)
-                    self.learn()
+                #learn process
+                self.store_transition(observation, action, reward, observation_, done)
+                self.learn()
                 observation = observation_
                 n_steps += 1
                 steps += 1
@@ -246,34 +241,30 @@ class DQNAgent(object):
             print('episode: ', i, 'score: ', score, ' average score %.1f' % avg_scores,
                   'best score %.2f' % best_score, 'epsilon %.2f' % self.epsilon, 'steps', n_steps)
 
-            if i % 10 == 0:
-                path = os.getcwd()
-                dir = f"{path}/trained_agents/DQNAgent/BTC/episode{i}"
-                if os.path.exists(dir):
-                    shutil.rmtree(dir)
-                os.makedirs(dir)
-                self.chkpt_dir = dir
-                self.save_models(dir)
-
+            if i % checkpoint_freq == 0:
+                #path = os.getcwd()
+                #dir = f"{path}/trained_agents/DQNAgent/BTC/episode{i}"
+                if os.path.exists(self.chkpt_dir + f"/episode{i}"):
+                    shutil.rmtree(self.chkpt_dir + f"/episode{i}")
+                os.makedirs(self.chkpt_dir + f"/episode{i}")
+                self.save_models(i)
 
             eps_history.append(self.epsilon)
+
         return env
 
-    def eval(self, env):
-
-        env.reset()
-        load_checkpoint = True
+    def evaluate(self, env):
 
         self.epsilon = 0
         self.q_eval.eval()
-        obs_size = self.input_dims
         done = False
         observation = env.reset()
-        observation = self.convert_obs(observation, obs_size)
+        observation = self.convert_obs(observation, self.input_dims)
+
         while not done:
             action = self.choose_action(observation)
             observation_, reward, done, info = env.step(action)
-            observation_ = self.convert_obs(observation_, obs_size)
+            observation_ = self.convert_obs(observation_, self.input_dims)
             observation = observation_
 
         return env

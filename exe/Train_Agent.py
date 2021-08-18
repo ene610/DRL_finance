@@ -29,6 +29,9 @@ df = df.drop(columns=['unix'])
 env = gym.make(id_str, df=df, frame_bound=(122,326), window_size=22)
 obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
 
+#definire gli iper
+
+
 agent = DQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
                                   input_dims=(obs_size),
                                   n_actions=env.action_space.n, mem_size=50000, eps_min=0.1,
