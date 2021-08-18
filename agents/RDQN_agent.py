@@ -1,7 +1,6 @@
 import sys
 from typing import Dict, List, Tuple
 
-
 import collections
 import torch
 
@@ -14,12 +13,13 @@ import random
 import os
 import shutil
 
+
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, n_actions, input_dims, numberOfNeurons=512, dropout=0.1):
+    def __init__(self, lr, n_actions, input_dims, numberOfNeurons=512, dropout=0.1, device="cpu"):
         super(DeepQNetwork, self).__init__()
 
         self.hidden_space = numberOfNeurons
-
+        self.device = device
         self.fc1 = nn.Linear(input_dims, numberOfNeurons)
         self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
         self.fc3 = nn.Linear(numberOfNeurons, numberOfNeurons)
@@ -49,35 +49,41 @@ class DeepQNetwork(nn.Module):
         self.optimizer = optim.RMSprop(self.parameters(), lr=lr)
 
         self.loss = nn.MSELoss()
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
-        self.to(self.device)
+
+        self.to(device)
 
     def forward(self, state, h, c):
 
+        h = h.to(self.device)
+        c = c.to(self.device)
+        # print("state",state.get_device())
+        # print("h",h.get_device())
+        # print("c",c.get_device())
         x = self.dropout1(F.leaky_relu(self.fc1(state)))
         x = self.dropout2(F.leaky_relu(self.fc2(x)))
         x = self.dropout3(F.leaky_relu(self.fc3(x)))
         x = self.dropout4(F.leaky_relu(self.fc4(x)))
         x, (new_h, new_c) = self.lstm1(x, (h, c))
+        new_h.to(self.device)
+        new_c.to(self.device)
         actions = self.fc5(x)
         return actions, new_h, new_c
 
     def init_hidden_state(self, batch_size, training=None):
 
         assert training is not None, "training step parameter should be dtermined"
-
         if training is True:
-            return T.zeros([1, batch_size, self.hidden_space]), T.zeros([1, batch_size, self.hidden_space])
+            return T.zeros([1, batch_size, self.hidden_space]), T.zeros([1, batch_size, self.hidden_space]).to(
+                self.device)
         else:
-            # print("False")
-            return T.zeros([1, 1, self.hidden_space]), T.zeros([1, 1, self.hidden_space])
+            return T.zeros([1, 1, self.hidden_space]), T.zeros([1, 1, self.hidden_space]).to(self.device)
 
     def save_checkpoint(self, path):
         print('... saving checkpoint ...')
         T.save(self.state_dict(), path)
 
     def load_checkpoint(self, path):
-        # print('... loading checkpoint ...')
+        print('... loading checkpoint ...')
         self.load_state_dict(T.load(path))
 
 
@@ -128,13 +134,14 @@ class EpisodeMemory():
     def __init__(self, random_update=False,
                  max_epi_num=100, max_epi_len=500,
                  batch_size=1,
-                 lookup_step=None, seed = 1):
+                 lookup_step=None, seed=1):
         self.random_update = random_update  # if False, sequential update
         self.max_epi_num = max_epi_num
         self.max_epi_len = max_epi_len
         self.batch_size = batch_size
         self.lookup_step = lookup_step
         self.seed = 1
+        self.rng = np.random.default_rng(self.seed)
 
         if (random_update is False) and (self.batch_size > 1):
             sys.exit(
@@ -148,11 +155,14 @@ class EpisodeMemory():
     def sample(self):
         sampled_buffer = []
 
-        np.random.seed(self.seed)
+        # self.rng.integers(low=0, high=1000, size=1)
 
         ##################### RANDOM UPDATE ############################
-        if self.random_update:  # Random upodate
-            sampled_episodes = random.sample(self.memory, self.batch_size)
+
+        if self.random_update:  # Random update
+            sampled_episodes = []
+            sampled_episodes = rng.choice(self.memory, size=self.batch_size)
+            # sampled_episodes = random.sample(self.memory, self.batch_size)
 
             check_flag = True  # check if every sample data to train is larger than batch size
             min_step = self.max_epi_len
@@ -162,17 +172,19 @@ class EpisodeMemory():
 
             for episode in sampled_episodes:
                 if min_step > self.lookup_step:  # sample buffer with lookup_step size
-                    idx = np.random.randint(0, len(episode) - self.lookup_step + 1)
+                    # idx = np.random.randint(0, len(episode) - self.lookup_step + 1)
+                    idx = self.rng.integers(low=0, high=len(episode) - self.lookup_step + 1, size=1)[0]
                     sample = episode.sample(random_update=self.random_update, lookup_step=self.lookup_step, idx=idx)
                     sampled_buffer.append(sample)
                 else:
-                    idx = np.random.randint(0, len(episode) - min_step + 1)  # sample buffer with minstep size
+                    # idx = np.random.randint(0, len(episode) - min_step + 1)  # sample buffer with minstep size
+                    idx = self.rng.integers(low=0, high=len(episode) - min_step + 1, size=1)[0]
                     sample = episode.sample(random_update=self.random_update, lookup_step=min_step, idx=idx)
                     sampled_buffer.append(sample)
 
         ##################### SEQUENTIAL UPDATE ############################
         else:  # Sequential update
-            idx = np.random.randint(0, len(self.memory))
+            idx = self.rng.integers(low=0, high=len(self.memory), size=1)[0]
             sampled_buffer.append(self.memory[idx].sample(random_update=self.random_update))
 
         return sampled_buffer, len(sampled_buffer[0]['obs'])  # buffers, sequence_length
@@ -185,7 +197,7 @@ class DRQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
                  replace=1000, chkpt_dir='tmp/dqn', random_update=True,
-                 lookup_step=10, max_epi_len=3000, device = "cpu", seed = 1):
+                 lookup_step=10, max_epi_len=3000, device="cpu", seed=1):
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
@@ -209,21 +221,17 @@ class DRQNAgent(object):
         self.device = device
         self.seed = seed
         self.q_eval = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims)
+                                   input_dims=self.input_dims, device=self.device)
 
         self.q_next = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims)
+                                   input_dims=self.input_dims, device=self.device)
 
-        self.q_next.load_state_dict(self.q_eval.state_dict())
-
-
-
-
+        self.q_next.load_state_dict(self.q_eval.state_dict(), )
 
         self.episode_memory = EpisodeMemory(random_update=self.random_update,
                                             max_epi_num=100, max_epi_len=max_epi_len,
                                             batch_size=batch_size,
-                                            lookup_step=lookup_step,seed = self.seed)
+                                            lookup_step=lookup_step, seed=self.seed)
 
         self.episode_buffer = EpisodeBuffer()
 
@@ -231,8 +239,8 @@ class DRQNAgent(object):
 
         state = T.tensor([observation], dtype=T.float).to(self.q_eval.device)
         actions, h, c = self.q_eval.forward(state, h, c)
-
         if np.random.random() > self.epsilon:
+
             action = T.argmax(actions).item()
         else:
             action = np.random.choice(self.action_space)
@@ -282,7 +290,6 @@ class DRQNAgent(object):
         rewards = []
         next_observations = []
         dones = []
-
 
         for i in range(batch_size):
             observations.append(samples[i]["obs"])
@@ -361,7 +368,6 @@ class DRQNAgent(object):
             score = 0
 
             while not done:
-
                 action, h, c = self.choose_action(observation, h, c)
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, self.input_dims)
@@ -396,13 +402,13 @@ class DRQNAgent(object):
 
             eps_history.append(self.epsilon)
 
-#batch_size = 6
-#obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
-#agent = DRQNAgent(gamma=0.99, epsilon=0.5, lr=0.0001,
+# batch_size = 6
+# obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
+# agent = DRQNAgent(gamma=0.99, epsilon=0.5, lr=0.0001,
 #                     input_dims = obs_size,
 #                     n_actions=env.action_space.n, mem_size=50000, eps_min=0.01,
 #                     batch_size=batch_size, replace=1000, eps_dec=3e-5,
 #                     chkpt_dir='/content/models/', algo='DQNAgent',
 #                     env_name=id_str)
 
-#agent.train(env)
+# agent.train(env)

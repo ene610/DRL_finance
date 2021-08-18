@@ -8,6 +8,7 @@ from indicators import Indicators
 import pandas as pd
 import math
 pd.options.mode.chained_assignment = None
+import quantstats as qs
 
 
 class Actions(Enum):
@@ -138,6 +139,32 @@ class CryptoTradingEnv(gym.Env):
         std = np.array(returns_list).std()
         sharpe_ratio = (roi - rf) / std
         return sharpe_ratio
+
+    def sharpe_calculator_total_quantstats(self):
+        returns_list = list(self.returns_balance.values())
+        pd_returns_list = pd.DataFrame(returns_list)
+        sharpe = qs.stats.sharpe(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)
+        return sharpe
+
+    def sharpe_calculator_quantstats(self):
+        key_list = list(self.returns_balance.keys())
+        returns_list = list(self.returns_balance.values())[key_list.index(self._open_position_tick):]
+        pd_returns_list = pd.DataFrame(returns_list)
+        sharpe = qs.stats.sharpe(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)
+        return sharpe
+
+    def sortino_calculator_quantstats(self):
+        key_list = list(self.returns_balance.keys())
+        returns_list = list(self.returns_balance.values())[key_list.index(self._open_position_tick):]
+        pd_returns_list = pd.DataFrame(returns_list)
+        sortino = qs.stats.sortino(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)
+        return sortino
+
+    def sortino_calculator_total_quantstats(self):
+        returns_list = list(self.returns_balance.values())
+        pd_returns_list = pd.DataFrame(returns_list)
+        sortino = qs.stats.sortino(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)
+        return sortino
 
     def step(self, action):
         '''
