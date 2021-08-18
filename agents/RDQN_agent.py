@@ -3,11 +3,8 @@ from typing import Dict, List, Tuple
 
 
 import collections
-
-
 import torch
 
-import os
 import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
@@ -18,14 +15,10 @@ import os
 import shutil
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, n_actions, name, input_dims, chkpt_dir):
+    def __init__(self, lr, n_actions, input_dims, numberOfNeurons=512, dropout=0.1):
         super(DeepQNetwork, self).__init__()
-        self.checkpoint_dir = chkpt_dir
-        self.checkpoint_file = os.path.join(self.checkpoint_dir, name)
 
-        numberOfNeurons = 512
         self.hidden_space = numberOfNeurons
-        dropout = 0.1
 
         self.fc1 = nn.Linear(input_dims, numberOfNeurons)
         self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
@@ -79,13 +72,13 @@ class DeepQNetwork(nn.Module):
             # print("False")
             return T.zeros([1, 1, self.hidden_space]), T.zeros([1, 1, self.hidden_space])
 
-    def save_checkpoint(self):
+    def save_checkpoint(self, path):
         print('... saving checkpoint ...')
-        T.save(self.state_dict(), self.checkpoint_file)
+        T.save(self.state_dict(), path)
 
-    def load_checkpoint(self):
-        print('... loading checkpoint ...')
-        self.load_state_dict(T.load(self.checkpoint_file))
+    def load_checkpoint(self, path):
+        # print('... loading checkpoint ...')
+        self.load_state_dict(T.load(path))
 
 
 class EpisodeBuffer:
@@ -135,12 +128,13 @@ class EpisodeMemory():
     def __init__(self, random_update=False,
                  max_epi_num=100, max_epi_len=500,
                  batch_size=1,
-                 lookup_step=None):
+                 lookup_step=None, seed = 1):
         self.random_update = random_update  # if False, sequential update
         self.max_epi_num = max_epi_num
         self.max_epi_len = max_epi_len
         self.batch_size = batch_size
         self.lookup_step = lookup_step
+        self.seed = 1
 
         if (random_update is False) and (self.batch_size > 1):
             sys.exit(
@@ -153,6 +147,8 @@ class EpisodeMemory():
 
     def sample(self):
         sampled_buffer = []
+
+        np.random.seed(self.seed)
 
         ##################### RANDOM UPDATE ############################
         if self.random_update:  # Random upodate
@@ -188,7 +184,8 @@ class EpisodeMemory():
 class DRQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
-                 replace=1000, algo=None, env_name=None, chkpt_dir='tmp/dqn', random_update=True):
+                 replace=1000, chkpt_dir='tmp/dqn', random_update=True,
+                 lookup_step=10, max_epi_len=3000, device = "cpu", seed = 1):
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
@@ -198,58 +195,35 @@ class DRQNAgent(object):
         self.eps_min = eps_min
         self.eps_dec = eps_dec
         self.replace_target_cnt = replace
-        self.algo = algo
-        self.env_name = env_name
+
         self.chkpt_dir = chkpt_dir
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
         self.batch_size = batch_size
         # random_update = True
+
+        # DRQN param #episode buffer paraeter
         self.random_update = random_update
-        ###########
-
-        learning_rate = 1e-3
-        buffer_len = int(100000)
-        min_epi_num = 16  # Start moment to train the Q network
-        episodes = 650
-        print_per_iter = 20
-        target_update_period = 4
-        eps_start = 0.1
-        eps_end = 0.001
-        eps_decay = 0.995
-        tau = 1e-2
-        max_step = 5000
-
-        # DRQN param
-        random_update = True  # If you want to do random update instead of sequential update
-        lookup_step = 10  # If you want to do random update instead of sequential update
-        max_epi_len = 3000
-        max_epi_step = max_step
-        device = "cpu"
-
-        obs_shape = input_dims
-        # Create Q functions
-
+        self.lookup_step = lookup_step
+        self.max_epi_len = max_epi_len
+        self.device = device
+        self.seed = seed
         self.q_eval = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims,
-                                   name=self.env_name + '_' + self.algo + '_q_eval',
-                                   chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims)
 
         self.q_next = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims,
-                                   name=self.env_name + '_' + self.algo + '_q_next',
-                                   chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims)
 
         self.q_next.load_state_dict(self.q_eval.state_dict())
 
-        ###########
 
-        max_epi_len = 1200
-        lookup_step = 8
-        self.episode_memory = EpisodeMemory(random_update=random_update,
+
+
+
+        self.episode_memory = EpisodeMemory(random_update=self.random_update,
                                             max_epi_num=100, max_epi_len=max_epi_len,
                                             batch_size=batch_size,
-                                            lookup_step=lookup_step)
+                                            lookup_step=lookup_step,seed = self.seed)
 
         self.episode_buffer = EpisodeBuffer()
 
@@ -274,19 +248,6 @@ class DRQNAgent(object):
     def reset_buffer(self):
         self.episode_buffer = EpisodeBuffer()
 
-    def sample_memory(self):
-        # TODO modifica
-        state, action, reward, new_state, done = \
-            self.memory.sample_buffer(self.batch_size)
-
-        states = T.tensor(state).to(self.q_eval.device)
-        rewards = T.tensor(reward).to(self.q_eval.device)
-        dones = T.tensor(done).to(self.q_eval.device)
-        actions = T.tensor(action).to(self.q_eval.device)
-        states_ = T.tensor(new_state).to(self.q_eval.device)
-
-        return states, actions, rewards, states_, dones
-
     def replace_target_network(self):
         if self.learn_step_counter % self.replace_target_cnt == 0:
             self.q_next.load_state_dict(self.q_eval.state_dict())
@@ -295,34 +256,33 @@ class DRQNAgent(object):
         self.epsilon = self.epsilon - self.eps_dec \
             if self.epsilon > self.eps_min else self.eps_min
 
-    def save_models(self):
-        self.q_eval.save_checkpoint()
-        self.q_next.save_checkpoint()
+    def save_models(self, episode):
+        self.q_eval.save_checkpoint(self.chkpt_dir + f"/episode{episode}/q_eval")
+        self.q_next.save_checkpoint(self.chkpt_dir + f"/episode{episode}/q_next")
 
-    def load_models(self):
-        self.q_eval.load_checkpoint()
-        self.q_next.load_checkpoint()
+    def load_models(self, episode):
+        self.q_eval.load_checkpoint(self.chkpt_dir + f"/episode{episode}/q_eval")
+        self.q_next.load_checkpoint(self.chkpt_dir + f"/episode{episode}/q_next")
 
-    def learn(self,
-              device="cpu",
-              learning_rate=1e-3,
-              gamma=0.99):
-
-        assert device is not None, "None Device input: device should be selected."
+    def learn(self):
 
         q_net = self.q_eval
         target_q_net = self.q_next
         episode_memory = self.episode_memory
         optimizer = self.q_eval.optimizer
+        device = self.device
+        gamma = self.gamma
+        batch_size = self.batch_size
 
         # Get batch from replay buffer
         samples, seq_len = episode_memory.sample()
-        batch_size = self.batch_size
+
         observations = []
         actions = []
         rewards = []
         next_observations = []
         dones = []
+
 
         for i in range(batch_size):
             observations.append(samples[i]["obs"])
@@ -361,66 +321,71 @@ class DRQNAgent(object):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+
         self.decrement_epsilon()
 
     def convert_obs(self, obs, obs_size):
         return obs.reshape(1, obs_size)
 
-    def eval(self, env):
+    def evaluate(self, env):
 
-        env.reset()
-        self.epsilon = 0
-        obs_size = self.input_dims
         self.q_eval.eval()
-        for i in range(1):
-            done = False
-            observation = env.reset()
-            # print(observation.shape)
-            observation = self.convert_obs(observation, obs_size)
-            h, c = self.q_eval.init_hidden_state(batch_size=self.batch_size, training=False)
+        self.epsilon = 0
 
-            while not done:
-                action, h, c = self.choose_action(observation, h, c)
-                observation_, reward, done, info = env.step(action)
-                observation_ = self.convert_obs(observation_, obs_size)
-                observation = observation_
+        done = False
+        observation = env.reset()
+        observation = self.convert_obs(observation, self.input_dims)
+        h, c = self.q_eval.init_hidden_state(batch_size=self.batch_size, training=False)
+
+        while not done:
+            action, h, c = self.choose_action(observation, h, c)
+            observation_, reward, done, info = env.step(action)
+            observation_ = self.convert_obs(observation_, self.input_dims)
+            observation = observation_
 
         return env
 
-    def train(self, env):
-        obs_size = self.input_dims
+    def train(self, env, n_episodes=100, checkpoint_freq=10):
+
         best_score = -np.inf
         n_steps = 0
         scores, eps_history, steps_array = [], [], []
-        n_episodes = 50
-        batch_size = self.batch_size
-        load_checkpoint = False
+
         for episode in range(n_episodes):
             done = False
 
             observation = env.reset()
-            h, c = self.q_eval.init_hidden_state(batch_size=batch_size, training=False)
-            observation = self.convert_obs(observation, obs_size)
-            # print(observation.shape)
-            # input()
+            h, c = self.q_eval.init_hidden_state(batch_size=self.batch_size, training=False)
+            observation = self.convert_obs(observation, self.input_dims)
             steps = 0
             score = 0
 
             while not done:
+
                 action, h, c = self.choose_action(observation, h, c)
                 observation_, reward, done, info = env.step(action)
-                observation_ = self.convert_obs(observation_, obs_size)
+                observation_ = self.convert_obs(observation_, self.input_dims)
+
                 self.store_transition([observation, action, reward, observation_, done])
-                # observation = convert_obs(observation_,obs_size)
+
                 score += reward
                 observation = observation_
                 n_steps += 1
                 steps += 1
-                if not load_checkpoint and episode > 13:
+
+                if episode > self.batch_size:
                     self.learn()
 
             self.store_episode()
             self.reset_buffer()
+
+            if episode % checkpoint_freq == 0:
+                if os.path.exists(self.chkpt_dir + f"/episode{episode}"):
+                    shutil.rmtree(self.chkpt_dir + f"/episode{episode}")
+                os.makedirs(self.chkpt_dir + f"/episode{episode}")
+                self.save_models(episode)
+
+            eps_history.append(self.epsilon)
 
             scores.append(score)
             steps_array.append(n_steps)
