@@ -11,9 +11,10 @@ import os
 import shutil
 
 class ReplayBuffer(object):
-    def __init__(self, max_size, input_shape, n_actions):
+    def __init__(self, max_size, input_shape, n_actions, seed):
         self.mem_size = max_size
         self.mem_cntr = 0
+        self.seed = seed
         self.state_memory = np.zeros((self.mem_size, *input_shape),
                                      dtype=np.float32)
         self.new_state_memory = np.zeros((self.mem_size, *input_shape),
@@ -34,6 +35,7 @@ class ReplayBuffer(object):
 
     def sample_buffer(self, batch_size):
         max_mem = min(self.mem_cntr, self.mem_size)
+        np.random.seed(self.seed)
         batch = np.random.choice(max_mem, batch_size, replace=False)
 
         states = self.state_memory[batch]
@@ -46,13 +48,8 @@ class ReplayBuffer(object):
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, n_actions, name, input_dims, chkpt_dir):
+    def __init__(self, lr, n_actions, input_dims,  numberOfNeurons = 512, dropout = 0.1):
         super(DeepQNetwork, self).__init__()
-        self.checkpoint_dir = chkpt_dir
-        self.checkpoint_file = os.path.join(self.checkpoint_dir, name)
-
-        numberOfNeurons = 512
-        dropout = 0.1
 
         self.fc1 = nn.Linear(input_dims, numberOfNeurons)
         self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
@@ -117,7 +114,7 @@ class DeepQNetwork(nn.Module):
 class DDQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
-                 replace=1000, algo=None, env_name=None, chkpt_dir='tmp/dqn'):
+                 replace=1000, chkpt_dir='tmp/dqn', seed=1):
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
@@ -127,22 +124,17 @@ class DDQNAgent(object):
         self.eps_min = eps_min
         self.eps_dec = eps_dec
         self.replace_target_cnt = replace
-        self.algo = algo
-        self.env_name = env_name
         self.chkpt_dir = chkpt_dir
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
+        self.seed = seed
 
-        self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions)
+        self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions, self.seed)
 
         self.q_eval = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims,
-                                   name=self.env_name + '_' + self.algo + '_q_eval',
-                                   chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims)
         self.q_next = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims,
-                                   name=self.env_name + '_' + self.algo + '_q_next',
-                                   chkpt_dir=self.chkpt_dir)
+                                   input_dims=self.input_dims)
 
     def store_transition(self, state, action, reward, state_, done):
         self.memory.store_transition(state, action, reward, state_, done)
@@ -206,24 +198,20 @@ class DDQNAgent(object):
 
         self.decrement_epsilon()
 
-    def save_models(self, path):
-        self.q_eval.save_checkpoint(path + "/q_eval")
-        self.q_next.save_checkpoint(path + "/q_next")
+    def save_models(self, episode):
+        self.q_eval.save_checkpoint(self.chkpt_dir + f"/episode{episode}/q_eval")
+        self.q_next.save_checkpoint(self.chkpt_dir + f"/episode{episode}/q_next")
 
-    def load_models(self, path):
-        self.q_eval.load_checkpoint(path + "/q_eval")
-        self.q_next.load_checkpoint(path + "/q_next")
+    def load_models(self, episode):
+        self.q_eval.load_checkpoint(self.chkpt_dir + f"/episode{episode}/q_eval")
+        self.q_next.load_checkpoint(self.chkpt_dir + f"/episode{episode}/q_next")
 
     def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
 
-    def train(self, env):
+    def train(self, env, n_episodes=100, checkpoint_freq=10):
         best_score = -np.inf
         load_checkpoint = False
-        n_episodes = 100
-
-        if load_checkpoint:
-            self.agent.load_models()
 
         n_steps = 0
         scores, eps_history, steps_array = [], [], []
@@ -259,17 +247,16 @@ class DDQNAgent(object):
 
             eps_history.append(self.epsilon)
 
-            if i % 10 == 0:
-                path = os.getcwd()
-                dir = f"{path}/trained_agents/DDQNAgent/BTC/episode{i}"
-                if os.path.exists(dir):
-                    shutil.rmtree(dir)
-                os.makedirs(dir)
-                self.chkpt_dir = dir
-                self.save_models(dir)
+            if i % checkpoint_freq == 0:
+                #path = os.getcwd()
+                #dir = f"{path}/trained_agents/DDQNAgent/BTC/episode{i}"
+                if os.path.exists(self.chkpt_dir + f"/episode{i}"):
+                    shutil.rmtree(self.chkpt_dir + f"/episode{i}")
+                os.makedirs(self.chkpt_dir + f"/episode{i}")
+                self.save_models(i)
         return env
 
-    def eval(self, env):
+    def evaluate(self, env):
 
         self.epsilon = 0
         obs_size = self.input_dims

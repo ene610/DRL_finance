@@ -4,7 +4,7 @@ import numpy as np
 class Indicators:
 
     @staticmethod
-    def sma_indicator(df: pd.DataFrame, time_period: int = 21):
+    def sma_indicator(df: pd.DataFrame, time_period: int = 20):
         """
         Get The expected indicator in a pandas dataframe.
         Args:

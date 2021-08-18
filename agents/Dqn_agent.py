@@ -13,9 +13,10 @@ import shutil
 
 
 class ReplayBuffer(object):
-    def __init__(self, max_size, input_shape, n_actions):
+    def __init__(self, max_size, input_shape, n_actions, seed):
         self.mem_size = max_size
         self.mem_cntr = 0
+        self.seed = seed
         self.state_memory = np.zeros((self.mem_size, *input_shape),
                                      dtype=np.float32)
         self.new_state_memory = np.zeros((self.mem_size, *input_shape),
@@ -49,7 +50,7 @@ class ReplayBuffer(object):
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, n_actions, input_dims,  numberOfNeurons = 512, dropout = 0.1):
+    def __init__(self, lr, n_actions, input_dims, numberOfNeurons = 512, dropout = 0.1):
         super(DeepQNetwork, self).__init__()
 
         self.fc1 = nn.Linear(input_dims, numberOfNeurons)
@@ -129,7 +130,7 @@ class DQNAgent(object):
 
         #/trained_agent/nome_agent/coin/episodio
         #{fuori                        }{interno}
-        self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions)
+        self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions, seed=self.seed)
 
         self.q_eval = DeepQNetwork(self.lr, self.n_actions,
                                    input_dims=self.input_dims)
@@ -206,7 +207,7 @@ class DQNAgent(object):
     def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
 
-    def train(self, env,  n_episodes=100, checkpoint_freq=10):
+    def train(self, env, n_episodes=100, checkpoint_freq=10):
 
         best_score = -np.inf
         load_checkpoint = False
