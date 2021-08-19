@@ -140,7 +140,7 @@ class EpisodeMemory():
         self.max_epi_len = max_epi_len
         self.batch_size = batch_size
         self.lookup_step = lookup_step
-        self.seed = 1
+        self.seed = seed
         self.rng = np.random.default_rng(self.seed)
 
         if (random_update is False) and (self.batch_size > 1):
@@ -161,7 +161,7 @@ class EpisodeMemory():
 
         if self.random_update:  # Random update
             sampled_episodes = []
-            sampled_episodes = rng.choice(self.memory, size=self.batch_size)
+            sampled_episodes = self.rng.choice(self.memory, size=self.batch_size)
             # sampled_episodes = random.sample(self.memory, self.batch_size)
 
             check_flag = True  # check if every sample data to train is larger than batch size

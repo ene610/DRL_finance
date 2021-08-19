@@ -12,7 +12,6 @@ import shutil
 
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions, seed):
-
         self.mem_size = max_size
         self.mem_cntr = 0
         self.seed = seed
@@ -24,6 +23,8 @@ class ReplayBuffer(object):
         self.action_memory = np.zeros(self.mem_size, dtype=np.int64)
         self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
         self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
+        self.seed = seed
+        self.rng = np.random.default_rng(self.seed)
 
     def store_transition(self, state, action, reward, state_, done):
         index = self.mem_cntr % self.mem_size
@@ -36,9 +37,7 @@ class ReplayBuffer(object):
 
     def sample_buffer(self, batch_size):
         max_mem = min(self.mem_cntr, self.mem_size)
-        np.random.seed(self.seed)
-        batch = np.random.choice(max_mem, batch_size, replace=False)
-
+        batch = self.rng.choice(max_mem, batch_size, replace=False)
         states = self.state_memory[batch]
         actions = self.action_memory[batch]
         rewards = self.reward_memory[batch]
