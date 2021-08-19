@@ -56,17 +56,17 @@ class DeepQNetwork(nn.Module):
 
         h = h.to(self.device)
         c = c.to(self.device)
-        # print("state",state.get_device())
-        # print("h",h.get_device())
-        # print("c",c.get_device())
+
         x = self.dropout1(F.leaky_relu(self.fc1(state)))
         x = self.dropout2(F.leaky_relu(self.fc2(x)))
         x = self.dropout3(F.leaky_relu(self.fc3(x)))
         x = self.dropout4(F.leaky_relu(self.fc4(x)))
         x, (new_h, new_c) = self.lstm1(x, (h, c))
+
         new_h.to(self.device)
         new_c.to(self.device)
         actions = self.fc5(x)
+
         return actions, new_h, new_c
 
     def init_hidden_state(self, batch_size, training=None):
@@ -402,13 +402,25 @@ class DRQNAgent(object):
 
             eps_history.append(self.epsilon)
 
+
+# chkpt_dir = os.getcwd() + "/trained_agents/DQN/BTC"
 # batch_size = 6
 # obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
-# agent = DRQNAgent(gamma=0.99, epsilon=0.5, lr=0.0001,
-#                     input_dims = obs_size,
-#                     n_actions=env.action_space.n, mem_size=50000, eps_min=0.01,
-#                     batch_size=batch_size, replace=1000, eps_dec=3e-5,
-#                     chkpt_dir='/content/models/', algo='DQNAgent',
-#                     env_name=id_str)
+# agent = DRQNAgent(gamma=0.99,
+#                   epsilon=0.5,
+#                   lr=0.0001,
+#                   input_dims = obs_size,
+#                   n_actions=env.action_space.n,
+#                   mem_size=50000,
+#                   eps_min=0.01,
+#                   batch_size=1,#batch_size,
+#                   replace=1000,
+#                   eps_dec=3e-5,
+#                   random_update=False,
+#                   lookup_step=10,
+#                   max_epi_len=3000,
+#                   device="cuda",
+#                   seed=1,
+#                   chkpt_dir=chkpt_dir)
 
 # agent.train(env)

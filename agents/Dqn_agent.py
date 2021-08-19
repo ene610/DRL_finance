@@ -50,7 +50,7 @@ class ReplayBuffer(object):
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, n_actions, input_dims, numberOfNeurons = 512, dropout = 0.1):
+    def __init__(self, lr, n_actions, input_dims, numberOfNeurons = 512, dropout = 0.1, device="cpu"):
         super(DeepQNetwork, self).__init__()
 
         self.fc1 = nn.Linear(input_dims, numberOfNeurons)
@@ -81,7 +81,7 @@ class DeepQNetwork(nn.Module):
         self.optimizer = optim.RMSprop(self.parameters(), lr=lr)
 
         self.loss = nn.MSELoss()
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
+        self.device = device
         self.to(self.device)
 
     def forward(self, state):
@@ -112,7 +112,7 @@ class DQNAgent(object):
 
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
-                 replace=1000, chkpt_dir='tmp/dqn', seed=1):
+                 replace=1000, chkpt_dir='tmp/dqn', seed=1, device="cpu"):
 
         self.gamma = gamma
         self.epsilon = epsilon
@@ -133,10 +133,10 @@ class DQNAgent(object):
         self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions, seed=self.seed)
 
         self.q_eval = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims)
+                                   input_dims=self.input_dims,device=device)
 
         self.q_next = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims)
+                                   input_dims=self.input_dims,device=device)
 
 
     def choose_action(self, observation):
@@ -270,13 +270,23 @@ class DQNAgent(object):
 
         return env
 
+# chkpt_dir = os.getcwd() + "/trained_agents/DQN/BTC"
 # env = gym.make(id_str, df=df, frame_bound=(122,326), window_size=22)
+
 # obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
-# agent =DQNAgent(gamma=0.99, epsilon=1.0, lr=0.0001,
-#                                  input_dims=(obs_size),
-#                                  n_actions=env.action_space.n, mem_size=50000, eps_min=0.1,
-#                                  batch_size=32, replace=10000, eps_dec=1e-5,
-#                                  chkpt_dir='/content/models/', algo='DuelingDDQNAgent',
-#                                  env_name=id_str)
+# agent =DQNAgent(gamma=0.99,
+#                 epsilon=1.0,
+#                 lr=0.0001,
+#                 input_dims=(obs_size),
+#                 n_actions=env.action_space.n,
+#                 mem_size=50000,
+#                 eps_min=0.1,
+#                 batch_size=32,
+#                 replace=10000,
+#                 eps_dec=1e-5,
+#                 chkpt_dir=chkpt_dir,
+#                 seed = 1,
+#                 device = device
+#                 )
 
 # agent.train(env)
