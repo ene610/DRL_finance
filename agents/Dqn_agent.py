@@ -50,14 +50,14 @@ class ReplayBuffer(object):
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, n_actions, input_dims, numberOfNeurons = 512, dropout = 0.1, device="cpu"):
+    def __init__(self, lr, n_actions, input_dims, n_neurons_layer = 512, dropout = 0.1, device="cpu"):
         super(DeepQNetwork, self).__init__()
 
-        self.fc1 = nn.Linear(input_dims, numberOfNeurons)
-        self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
-        self.fc3 = nn.Linear(numberOfNeurons, numberOfNeurons)
-        self.fc4 = nn.Linear(numberOfNeurons, numberOfNeurons)
-        self.fc5 = nn.Linear(numberOfNeurons, n_actions)
+        self.fc1 = nn.Linear(input_dims, n_neurons_layer)
+        self.fc2 = nn.Linear(n_neurons_layer, n_neurons_layer)
+        self.fc3 = nn.Linear(n_neurons_layer, n_neurons_layer)
+        self.fc4 = nn.Linear(n_neurons_layer, n_neurons_layer)
+        self.fc5 = nn.Linear(n_neurons_layer, n_actions)
 
         # Definition of some Batch Normalization layers
         # self.bn1 = nn.BatchNorm1d(numberOfNeurons)
@@ -112,7 +112,7 @@ class DQNAgent(object):
 
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
-                 replace=1000, chkpt_dir='tmp/dqn', seed=1, device="cpu"):
+                 replace=1000, chkpt_dir='tmp/dqn', seed=1, device="cpu", n_neurons_layer=512, dropout=0.1):
 
         self.gamma = gamma
         self.epsilon = epsilon
@@ -132,11 +132,19 @@ class DQNAgent(object):
         #{fuori                        }{interno}
         self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions, seed=self.seed)
 
-        self.q_eval = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims,device=device)
+        self.q_eval = DeepQNetwork(self.lr,
+                                    self.n_actions,
+                                    input_dims=self.input_dims,
+                                    device=device,
+                                    n_neurons_layer=n_neurons_layer,
+                                    dropout=dropout)
 
-        self.q_next = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims,device=device)
+        self.q_next = DeepQNetwork(self.lr,
+                                    self.n_actions,
+                                    input_dims=self.input_dims,
+                                    device=device,
+                                    n_neurons_layer=n_neurons_layer,
+                                    dropout=dropout)
 
 
     def choose_action(self, observation):

@@ -4,9 +4,10 @@ from gym import spaces
 import numpy as np
 from enum import Enum
 import matplotlib.pyplot as plt
-from indicators import Indicators
 import pandas as pd
 import math
+from indicators import Indicators
+
 pd.options.mode.chained_assignment = None
 import quantstats as qs
 
@@ -49,7 +50,7 @@ class CryptoTradingEnv(gym.Env):
 
     def __init__(self, df, frame_bound, window_size: int = 22,
                  indicators=['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22'],
-                 position_in_observation: bool = True):
+                 position_in_observation: bool = True, reward_option="sharpe"):
         assert df.ndim == 2
         assert len(frame_bound) == 2
         self.indicators_to_use = indicators
@@ -93,6 +94,7 @@ class CryptoTradingEnv(gym.Env):
         # self._max_profit_possible = self.max_possible_profit()
         self._max_profit_possible = 0
         self._profit_in_step = np.zeros(0)
+        self.reward_option = reward_option
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -143,27 +145,35 @@ class CryptoTradingEnv(gym.Env):
     def sharpe_calculator_total_quantstats(self):
         returns_list = list(self.returns_balance.values())
         pd_returns_list = pd.DataFrame(returns_list)
-        sharpe = qs.stats.sharpe(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)
+        sharpe = qs.stats.sharpe(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)[0]
+        if math.isnan(sharpe):
+            sharpe = 0
         return sharpe
 
     def sharpe_calculator_quantstats(self):
         key_list = list(self.returns_balance.keys())
         returns_list = list(self.returns_balance.values())[key_list.index(self._open_position_tick):]
         pd_returns_list = pd.DataFrame(returns_list)
-        sharpe = qs.stats.sharpe(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)
+        sharpe = qs.stats.sharpe(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)[0]
+        if math.isnan(sharpe):
+            sharpe = 0
         return sharpe
 
     def sortino_calculator_quantstats(self):
         key_list = list(self.returns_balance.keys())
         returns_list = list(self.returns_balance.values())[key_list.index(self._open_position_tick):]
         pd_returns_list = pd.DataFrame(returns_list)
-        sortino = qs.stats.sortino(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)
+        sortino = qs.stats.sortino(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)[0]
+        if math.isnan(sortino):
+            sortino = 0
         return sortino
 
     def sortino_calculator_total_quantstats(self):
         returns_list = list(self.returns_balance.values())
         pd_returns_list = pd.DataFrame(returns_list)
-        sortino = qs.stats.sortino(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)
+        sortino = qs.stats.sortino(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)[0]
+        if math.isnan(sortino):
+            sortino = 0
         return sortino
 
     def step(self, action):
@@ -222,6 +232,12 @@ class CryptoTradingEnv(gym.Env):
         :param action:
         :return:
         '''
+        # reward option
+        if self.reward_option == "sharpe":
+            reward_function = self.sharpe_calculator_quantstats
+
+        if self.reward_option == "sortino":
+            reward_function = self.sortino_calculator_quantstats
 
         # è negativo quando fa un'azione invalida?
         step_reward = 0
@@ -280,7 +296,8 @@ class CryptoTradingEnv(gym.Env):
 
             holding_in_long = self.returns_balance[self._open_position_tick] / open_position_price * current_price
             self.returns_balance[self._current_tick] = holding_in_long
-            step_reward = self.sharpe_calculator(holding_in_long)
+            # step_reward = self.sharpe_calculator(holding_in_long)
+            step_reward = reward_function()
 
             # (Long, ClosePosition) -> Free
         elif action == Actions.OpenShortPos.value and self._position == Positions.Long:
@@ -298,7 +315,8 @@ class CryptoTradingEnv(gym.Env):
             close_in_long = self.returns_balance[self._open_position_tick] / open_position_price * current_price
             self.returns_balance[self._current_tick] = close_in_long
 
-            step_reward = self.sharpe_calculator(close_in_long)
+            # step_reward = self.sharpe_calculator(close_in_long)
+            step_reward = reward_function()
 
         elif action == Actions.OpenShortPos.value and self._position == Positions.Free:
             new_position = self._position.switch_position(action)
@@ -330,8 +348,8 @@ class CryptoTradingEnv(gym.Env):
             holding_in_short = self.returns_balance[self._open_position_tick] * 2 - short_pay
 
             self.returns_balance[self._current_tick] = holding_in_short
-            step_reward = self.sharpe_calculator(holding_in_short)
-
+            # step_reward = self.sharpe_calculator(holding_in_short)
+            step_reward = reward_function()
 
 
         elif action == Actions.OpenLongPos.value and self._position == Positions.Short:
@@ -351,8 +369,8 @@ class CryptoTradingEnv(gym.Env):
             close_short = self.returns_balance[self._open_position_tick] * 2 - short_pay
             # self.balance_array.append(short_holding)
             self.returns_balance[self._current_tick] = close_short
-            step_reward = self.sharpe_calculator(close_short)
-
+            # step_reward = self.sharpe_calculator(close_short)
+            step_reward = reward_function()
 
         else:
             if self.invalid_action_replay:
@@ -361,6 +379,7 @@ class CryptoTradingEnv(gym.Env):
 
         self._total_reward += step_reward
         self._position = new_position
+
         return step_reward
 
     def _update_profit(self, action):

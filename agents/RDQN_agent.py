@@ -15,17 +15,17 @@ import shutil
 
 
 class DeepQNetwork(nn.Module):
-    def __init__(self, lr, n_actions, input_dims, numberOfNeurons=512, dropout=0.1, device="cpu"):
+    def __init__(self, lr, n_actions, input_dims, n_neurons_layer=512, dropout=0.1, device="cpu"):
         super(DeepQNetwork, self).__init__()
 
-        self.hidden_space = numberOfNeurons
+        self.hidden_space = n_neurons_layer
         self.device = device
-        self.fc1 = nn.Linear(input_dims, numberOfNeurons)
-        self.fc2 = nn.Linear(numberOfNeurons, numberOfNeurons)
-        self.fc3 = nn.Linear(numberOfNeurons, numberOfNeurons)
-        self.fc4 = nn.Linear(numberOfNeurons, numberOfNeurons)
-        self.lstm1 = nn.LSTM(numberOfNeurons, numberOfNeurons, batch_first=True)
-        self.fc5 = nn.Linear(numberOfNeurons, n_actions)
+        self.fc1 = nn.Linear(input_dims, n_neurons_layer)
+        self.fc2 = nn.Linear(n_neurons_layer, n_neurons_layer)
+        self.fc3 = nn.Linear(n_neurons_layer, n_neurons_layer)
+        self.fc4 = nn.Linear(n_neurons_layer, n_neurons_layer)
+        self.lstm1 = nn.LSTM(n_neurons_layer, n_neurons_layer, batch_first=True)
+        self.fc5 = nn.Linear(n_neurons_layer, n_actions)
 
         # Definition of some Batch Normalization layers
         # self.bn1 = nn.BatchNorm1d(numberOfNeurons)
@@ -197,7 +197,7 @@ class DRQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
                  replace=1000, chkpt_dir='tmp/dqn', random_update=True,
-                 lookup_step=10, max_epi_len=3000, device="cpu", seed=1):
+                 lookup_step=10, max_epi_len=3000, device="cpu", seed=1, n_neurons_layer=512, dropout=0.1):
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
@@ -220,18 +220,28 @@ class DRQNAgent(object):
         self.max_epi_len = max_epi_len
         self.device = device
         self.seed = seed
-        self.q_eval = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims, device=self.device)
+        self.q_eval = DeepQNetwork(self.lr,
+                                   self.n_actions,
+                                   input_dims=self.input_dims,
+                                   device=self.device,
+                                   n_neurons_layer=n_neurons_layer,
+                                   dropout=dropout)
 
-        self.q_next = DeepQNetwork(self.lr, self.n_actions,
-                                   input_dims=self.input_dims, device=self.device)
+        self.q_next = DeepQNetwork(self.lr,
+                                   self.n_actions,
+                                   input_dims=self.input_dims,
+                                   device=self.device,
+                                   n_neurons_layer=n_neurons_layer,
+                                   dropout=dropout)
 
         self.q_next.load_state_dict(self.q_eval.state_dict(), )
 
         self.episode_memory = EpisodeMemory(random_update=self.random_update,
-                                            max_epi_num=100, max_epi_len=max_epi_len,
+                                            max_epi_num=100,
+                                            max_epi_len=max_epi_len,
                                             batch_size=batch_size,
-                                            lookup_step=lookup_step, seed=self.seed)
+                                            lookup_step=lookup_step,
+                                            seed=self.seed)
 
         self.episode_buffer = EpisodeBuffer()
 
