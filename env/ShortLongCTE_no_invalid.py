@@ -55,7 +55,6 @@ class CryptoTradingEnv(gym.Env):
         assert len(frame_bound) == 2
         self.indicators_to_use = indicators
         self.seed()
-        # TODO cambia nome
         self.df = df
         self.frame_bound = frame_bound
         self.window_size = window_size
@@ -176,6 +175,81 @@ class CryptoTradingEnv(gym.Env):
             sortino = 0
         return sortino
 
+    def profit_calculator(self):
+        if self.trade_type == "HoldingLong":
+            return self.profit_holding_long()
+
+        elif self.trade_type == "HoldingShort":
+            return self.profit_holding_short()
+
+        elif self.trade_type == "CloseLong":
+            return self.profit_close_long()
+        elif self.trade_type == "CloseShort":
+            return self.profit_close_short()
+        else:
+            return 0
+
+
+    def profit_holding_long(self):
+        current_price = self.prices[self._current_tick]
+        open_position_price = self.prices[self._open_position_tick]
+        price_diff = (current_price - open_position_price) / open_position_price
+        # reward = media dei reward ottenuti dall'holding?
+
+        if self._holding_price_difference.size > 1:
+            if np.sign(price_diff) != np.sign(self._holding_price_difference[0]):
+                self._holding_price_difference = np.zeros(0)
+
+        self._holding_price_difference = np.append(self._holding_price_difference, price_diff)
+        # TODO esplora Nan values
+        step_reward = np.mean(self._holding_price_difference)
+        return step_reward
+
+    def profit_holding_short(self):
+        current_price = self.prices[self._current_tick]
+        open_position_price = self.prices[self._open_position_tick]
+        price_diff = -1 * (current_price - open_position_price) / open_position_price
+        # 1: 10 , 2: 11 , 3: 8
+        # -0.1
+        # +0.2
+
+        if self._holding_price_difference.size > 1:
+            if np.sign(price_diff) != np.sign(self._holding_price_difference[0]):
+                self._holding_price_difference = np.zeros(0)
+
+        self._holding_price_difference = np.append(self._holding_price_difference, price_diff)
+        # TODO esplora Nan values
+        step_reward = np.mean(self._holding_price_difference)
+
+        return step_reward
+
+    def profit_close_long(self):
+
+        current_price = self.prices[self._current_tick]
+        open_position_price = self.prices[self._open_position_tick]
+        profit = current_price - open_position_price
+
+        if profit >= 0:
+            step_reward = 1
+        else:
+            step_reward = -1
+
+        return step_reward
+
+    def profit_close_short(self):
+
+        current_price = self.prices[self._current_tick]
+        open_position_price = self.prices[self._open_position_tick]
+
+        profit = open_position_price - current_price
+
+        if profit >= 0:
+            step_reward = 1
+        else:
+            step_reward = -1
+
+        return step_reward
+
     def step(self, action):
         '''
         Responsabilità di step():
@@ -239,6 +313,9 @@ class CryptoTradingEnv(gym.Env):
         if self.reward_option == "sortino":
             reward_function = self.sortino_calculator_quantstats
 
+        else:
+            reward_function = self.profit_calculator
+
         # è negativo quando fa un'azione invalida?
         step_reward = 0
         new_position = self._position
@@ -260,37 +337,19 @@ class CryptoTradingEnv(gym.Env):
             # 1 è troppo alto? Ma se metto a 0.95 fa un trade ogni ora
             # così ne fa uno ogni due tre minuti
 
-            step_reward = 0
             last_key = list(self.returns_balance.keys())[-1]
             self.returns_balance[self._current_tick] = self.returns_balance[last_key]
 
-        # 0 aperta posizione a 10
-        # holding_rewards = []
-        # 1 prezzo a 12 -> hold 12-10 / 10 = 0.2 = 0.2
-        # 2 prezzo a 15 -> hold 15-10 / 10 => (0.5 +0.2) / 2 = 0.35
-        # 3 prezzo a 13 -> hold 0.3 + 0.5 + 0.2 / 3 = 0.33
-
-        # scendi invece di salire
-        # holding_rewards = []
-        # 4 prezzo a 8 -> hold 8-10 / 10 = -0.2
-        # 5 prezzo a 5 -> hold 5-10/10 = -0.5 -0.2 + 0.3 + 0.5 + 0.2 / 5 = 0.06
-        # 6 prezzoa a 15 -> hold
-
         # (Long, HoldPosition) -> Long
-        elif (
-                action == Actions.OpenLongPos.value or action == Actions.DoNothing.value) and self._position == Positions.Long:
+        elif (action == Actions.OpenLongPos.value or action == Actions.DoNothing.value) \
+                and self._position == Positions.Long:
+
+            self.trade_type = "HoldingLong"
+
+
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
-            price_diff = (current_price - open_position_price) / open_position_price
-            # reward = media dei reward ottenuti dall'hodlding?
 
-            if self._holding_price_difference.size > 1:
-                if np.sign(price_diff) != np.sign(self._holding_price_difference[0]):
-                    self._holding_price_difference = np.zeros(0)
-
-            self._holding_price_difference = np.append(self._holding_price_difference, price_diff)
-            # TODO esplora Nan values
-            step_reward = np.mean(self._holding_price_difference)
             # inserisce il balance provvisorio ottenuto come
             # balance all'acquisto / prezzo di acquisto * prezzo corrente
 
@@ -301,15 +360,13 @@ class CryptoTradingEnv(gym.Env):
 
             # (Long, ClosePosition) -> Free
         elif action == Actions.OpenShortPos.value and self._position == Positions.Long:
+
+            self.trade_type = "CloseLong"
+
+
             new_position = self._position.switch_position(action)
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
-            profit = current_price - open_position_price
-
-            if profit >= 0:
-                step_reward = 1
-            else:
-                step_reward = -1
 
             self._holding_price_difference = np.zeros(0)
             close_in_long = self.returns_balance[self._open_position_tick] / open_position_price * current_price
@@ -318,6 +375,7 @@ class CryptoTradingEnv(gym.Env):
             # step_reward = self.sharpe_calculator(close_in_long)
             step_reward = reward_function()
 
+        # (Short, Free) -> Short
         elif action == Actions.OpenShortPos.value and self._position == Positions.Free:
             new_position = self._position.switch_position(action)
             self._open_position_tick = self._current_tick
@@ -327,23 +385,15 @@ class CryptoTradingEnv(gym.Env):
             self.returns_balance[self._current_tick] = self.returns_balance[last_key]
 
 
-        elif (
-                action == Actions.OpenShortPos.value or action == Actions.DoNothing.value) and self._position == Positions.Short:
+        elif (action == Actions.OpenShortPos.value or action == Actions.DoNothing.value)\
+                and self._position == Positions.Short:
+
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
-            price_diff = -1 * (current_price - open_position_price) / open_position_price
-            # 1: 10 , 2: 11 , 3: 8
-            # -0.1
-            # +0.2
 
-            if self._holding_price_difference.size > 1:
-                if np.sign(price_diff) != np.sign(self._holding_price_difference[0]):
-                    self._holding_price_difference = np.zeros(0)
 
-            self._holding_price_difference = np.append(self._holding_price_difference, price_diff)
-            # TODO esplora Nan values
-            step_reward = np.mean(self._holding_price_difference)
-            #
+            self.trade_type = "HoldingShort"
+
             short_pay = self.returns_balance[self._open_position_tick] / open_position_price * current_price
             holding_in_short = self.returns_balance[self._open_position_tick] * 2 - short_pay
 
@@ -353,22 +403,19 @@ class CryptoTradingEnv(gym.Env):
 
 
         elif action == Actions.OpenLongPos.value and self._position == Positions.Short:
+
             new_position = self._position.switch_position(action)
             current_price = self.prices[self._current_tick]
             open_position_price = self.prices[self._open_position_tick]
 
-            profit = open_position_price - current_price
-
-            if profit >= 0:
-                step_reward = 1
-            else:
-                step_reward = -1
-            self._holding_price_difference = np.zeros(0)
+            self.trade_type = "CloseShort"
 
             short_pay = self.returns_balance[self._open_position_tick] / open_position_price * current_price
             close_short = self.returns_balance[self._open_position_tick] * 2 - short_pay
+
             # self.balance_array.append(short_holding)
             self.returns_balance[self._current_tick] = close_short
+
             # step_reward = self.sharpe_calculator(close_short)
             step_reward = reward_function()
 
