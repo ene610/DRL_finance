@@ -279,7 +279,6 @@ class DQNAgent(object):
         return env
 
 # chkpt_dir = os.getcwd() + "/trained_agents/DQN/BTC"
-# env = gym.make(id_str, df=df, frame_bound=(122,326), window_size=22)
 
 # obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
 # agent =DQNAgent(gamma=0.99,
@@ -294,7 +293,9 @@ class DQNAgent(object):
 #                 eps_dec=1e-5,
 #                 chkpt_dir=chkpt_dir,
 #                 seed = 1,
-#                 device = device
+#                 device = device,
+#                 n_neurons_layer=512,
+#                 dropout=0.1
 #                 )
 
-# agent.train(env)
+# agent.train(env,n_episodes=100, checkpoint_freq=10)

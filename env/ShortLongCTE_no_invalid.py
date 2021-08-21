@@ -491,7 +491,7 @@ class CryptoTradingEnv(gym.Env):
 
         return obs
 
-    def render_all(self, mode='human'):
+    def render_all(self, episode = 0):
 
         fig, axs = plt.subplots(2, figsize=(15, 6))
         window_ticks = np.arange(len(self._position_history))
@@ -518,15 +518,17 @@ class CryptoTradingEnv(gym.Env):
         axs[0].plot(free_ticks, self.prices[free_ticks], 'yo')
         axs[0].plot(long_ticks, self.prices[long_ticks], 'go')
         axs[0].plot(short_ticks, self.prices[short_ticks], 'ro')
-        sharpe_ratio = self.sharpe_calculator_total()
 
+        sharpe_ratio = self.sharpe_calculator_total_quantstats()
+        sortino_ratio = self.sortino_calculator_total_quantstats()
+        #
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
             "Total Profit: %.6f" % self._total_profit + ' ~ ' +
-            "Balance: %.6f" % self._balance + ' ~ ' +
-            "Invalid Action: %.6f" % self._count_invalid_action + ' ~ ' +
-            "Sharpe Ratio: %.6f" % sharpe_ratio
-            # "Max profit: %.6f" % self._max_profit_possible
+            f"Episode: {episode}" + ' ~ ' +
+            f"Sortino: {sortino_ratio}"  + ' ~ ' +
+            f"Sharpe Ratio: {sharpe_ratio}"
+
         )
 
     def close(self):
