@@ -184,6 +184,7 @@ class CryptoTradingEnv(gym.Env):
 
         elif self.trade_type == "CloseLong":
             return self.profit_close_long()
+
         elif self.trade_type == "CloseShort":
             return self.profit_close_short()
         else:
@@ -310,7 +311,7 @@ class CryptoTradingEnv(gym.Env):
         if self.reward_option == "sharpe":
             reward_function = self.sharpe_calculator_quantstats
 
-        if self.reward_option == "sortino":
+        elif self.reward_option == "sortino":
             reward_function = self.sortino_calculator_quantstats
 
         else:
