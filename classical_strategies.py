@@ -600,24 +600,24 @@ class MovingAverageCrossoverAgent():
     # obs deve contentere ['closes', 'sma']
     # obs dovrebbe essere un numpy
     # TODO controllare che il valore di default di sma in Indicators
-    def act(self, obs):
+    def act(self, obs, short_sma=1, long_sma=24):
         obs = pd.DataFrame(obs, columns=["close", "sma"])
-        obs["sma5"] = obs["close"].rolling(window=5).mean()
-        obs["sma10"] = obs["close"].rolling(window=10).mean()
+        obs["ssma"] = obs["close"].rolling(window=short_sma).mean()
+        obs["lsma"] = obs["close"].rolling(window=long_sma).mean()
 
-        pre_sma5, sma5 = obs.sma5.values[-2], obs.sma5.values[-1]
-        pre_sma10, sma10 = obs.sma10.values[-2], obs.sma10.values[-1]
+        pre_ssma, ssma = obs.ssma.values[-2], obs.ssma.values[-1]
+        pre_lsma, lsma = obs.lsma.values[-2], obs.lsma.values[-1]
 
         # BUY SIGNAL = se sma5 incrocia (cioè supera da sotto verso sopra) sma10 compro
-        if pre_sma5 < pre_sma10 and sma5 > sma10:
+        if pre_ssma < pre_lsma and ssma > lsma:
             return 1
 
-        if pre_sma5 > pre_sma10 and sma5 < sma10:
+        if pre_ssma > pre_lsma and ssma < lsma:
             return 2
 
-        if sma5 < sma10:
+        if ssma < lsma:
             return 2
-        if sma5 > sma10:
+        if ssma > lsma:
             return 1
 
         return 0
