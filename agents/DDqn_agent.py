@@ -9,6 +9,7 @@ import numpy as np
 from gym import wrappers
 import os
 import shutil
+from torch.utils.tensorboard import SummaryWriter
 
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions, seed):
@@ -128,6 +129,7 @@ class DDQNAgent(object):
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
         self.seed = seed
+        self.writer = SummaryWriter(f"Tensorboard plot/DDQN")
 
         self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions, self.seed)
 
@@ -206,6 +208,7 @@ class DDQNAgent(object):
         self.learn_step_counter += 1
 
         self.decrement_epsilon()
+        return loss.item()
 
     def save_models(self, episode):
         self.q_eval.save_checkpoint(self.chkpt_dir + f"/episode{episode}/q_eval")
@@ -218,7 +221,7 @@ class DDQNAgent(object):
     def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
 
-    def train(self, env, n_episodes=100, checkpoint_freq=10):
+    def train(self, env, coin, n_episodes=100, checkpoint_freq=10):
         best_score = -np.inf
         load_checkpoint = False
 
@@ -232,7 +235,7 @@ class DDQNAgent(object):
             observation = self.convert_obs(observation, obs_size)
             steps = 0
             score = 0
-
+            loss = 0
             while not done:
                 action = self.choose_action(observation)
                 observation_, reward, done, info = env.step(action)
@@ -241,7 +244,11 @@ class DDQNAgent(object):
 
                 if not load_checkpoint:
                     self.store_transition(observation, action, reward, observation_, done)
-                    self.learn()
+                    iteration_loss = self.learn()
+
+                if iteration_loss != None:
+                    loss += iteration_loss
+
 
                 observation = observation_
                 n_steps += 1
@@ -249,6 +256,9 @@ class DDQNAgent(object):
 
             scores.append(score)
             steps_array.append(n_steps)
+
+            self.writer.add_scalar(f"Loss/train/{coin}", loss, i)
+            self.writer.add_scalar(f"Reward/train/{coin}", score, i)
 
             avg_scores = np.average(scores)
             print('episode: ', i, 'score: ', score, ' average score %.1f' % avg_scores, 'best score %.2f' % best_score,

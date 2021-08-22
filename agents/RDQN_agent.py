@@ -12,7 +12,7 @@ import numpy as np
 import random
 import os
 import shutil
-
+from torch.utils.tensorboard import SummaryWriter
 
 class DeepQNetwork(nn.Module):
     def __init__(self, lr, n_actions, input_dims, n_neurons_layer=512, dropout=0.1, device="cpu"):
@@ -220,6 +220,8 @@ class DRQNAgent(object):
         self.max_epi_len = max_epi_len
         self.device = device
         self.seed = seed
+        self.writer = SummaryWriter(f"Tensorboard plot/DRQN")
+
         self.q_eval = DeepQNetwork(self.lr,
                                    self.n_actions,
                                    input_dims=self.input_dims,
@@ -340,6 +342,8 @@ class DRQNAgent(object):
         optimizer.step()
 
         self.decrement_epsilon()
+        return loss.item()
+
 
     def convert_obs(self, obs, obs_size):
         return obs.reshape(1, obs_size)
@@ -362,7 +366,7 @@ class DRQNAgent(object):
 
         return env
 
-    def train(self, env, n_episodes=100, checkpoint_freq=10):
+    def train(self, env, coin, n_episodes=100, checkpoint_freq=10):
 
         best_score = -np.inf
         n_steps = 0
@@ -376,6 +380,7 @@ class DRQNAgent(object):
             observation = self.convert_obs(observation, self.input_dims)
             steps = 0
             score = 0
+            loss = 0
 
             while not done:
                 action, h, c = self.choose_action(observation, h, c)
@@ -390,10 +395,16 @@ class DRQNAgent(object):
                 steps += 1
 
                 if episode > self.batch_size:
-                    self.learn()
+                    loss_iteration = self.learn()
+
+                if loss_iteration != None:
+                    loss += loss_iteration
 
             self.store_episode()
             self.reset_buffer()
+
+            self.writer.add_scalar(f"Loss/train/{coin}", loss, episode)
+            self.writer.add_scalar(f"Reward/train/{coin}", score, episode)
 
             if episode % checkpoint_freq == 0:
                 if os.path.exists(self.chkpt_dir + f"/episode{episode}"):

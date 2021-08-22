@@ -5,6 +5,7 @@ import torch.optim as optim
 import numpy as np
 import os
 import shutil
+from torch.utils.tensorboard import SummaryWriter
 
 #prima si puliscono
     #iper fuori
@@ -127,6 +128,7 @@ class DQNAgent(object):
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
         self.seed = seed
+        self.writer = SummaryWriter(f"Tensorboard plot/DQN")
 
         #/trained_agent/nome_agent/coin/episodio
         #{fuori                        }{interno}
@@ -212,10 +214,12 @@ class DQNAgent(object):
 
         self.decrement_epsilon()
 
+        return loss.item()
+
     def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
 
-    def train(self, env, n_episodes=100, checkpoint_freq=10):
+    def train(self, env, coin, n_episodes=100, checkpoint_freq=10):
 
         best_score = -np.inf
         load_checkpoint = False
@@ -232,17 +236,26 @@ class DQNAgent(object):
             observation = self.convert_obs(observation, obs_size)
             steps = 0
             score = 0
+            loss = 0
             while not done:
                 action = self.choose_action(observation)
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, obs_size)
                 score += reward
+
                 #learn process
                 self.store_transition(observation, action, reward, observation_, done)
-                self.learn()
+                iteration_loss = self.learn()
+                if iteration_loss != None:
+                    loss += iteration_loss
+
                 observation = observation_
                 n_steps += 1
                 steps += 1
+
+            self.writer.add_scalar(f"Loss/train/{coin}", loss, i)
+            self.writer.add_scalar(f"Reward/train/{coin}", score, i)
+
             scores.append(score)
             steps_array.append(n_steps)
 

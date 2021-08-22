@@ -1,4 +1,6 @@
 import os
+
+import tensorboardX
 import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,7 +10,7 @@ import gym
 from gym import wrappers
 import os
 import shutil
-
+from torch.utils.tensorboard import SummaryWriter
 
 class ReplayBuffer(object):
     def __init__(self, max_size, input_shape, n_actions, seed):
@@ -128,6 +130,7 @@ class DuelingDDQNAgent(object):
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
         self.seed = seed
+        self.writer = SummaryWriter(f"Tensorboard plot/Duelling_DDQN")
 
         self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions, self.seed)
 
@@ -215,6 +218,7 @@ class DuelingDDQNAgent(object):
         self.learn_step_counter += 1
 
         self.decrement_epsilon()
+        return loss.item()
 
     def save_models(self, episode):
         self.q_eval.save_checkpoint(self.chkpt_dir + f"/episode{episode}/q_eval")
@@ -228,7 +232,7 @@ class DuelingDDQNAgent(object):
     def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
 
-    def train(self, env, n_episodes=100, checkpoint_freq=10):
+    def train(self, env, coin, n_episodes=100, checkpoint_freq=10):
 
         best_score = -np.inf
         load_checkpoint = False
@@ -244,20 +248,26 @@ class DuelingDDQNAgent(object):
             observation = self.convert_obs(observation, obs_size)
             steps = 0
             score = 0
-
+            loss = 0
             while not done:
                 action = self.choose_action(observation)
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, obs_size)
                 score += reward
                 self.store_transition(observation, action, reward, observation_, done)
-                self.learn()
+                loss_iteration = self.learn()
+                if loss_iteration != None:
+                    loss += loss_iteration
+
                 observation = observation_
                 n_steps += 1
                 steps += 1
 
             scores.append(score)
             steps_array.append(n_steps)
+
+            self.writer.add_scalar(f"Loss/train/{coin}", loss, i)
+            self.writer.add_scalar(f"Reward/train/{coin}", score, i)
 
             if i % checkpoint_freq == 0:
                 # path = os.getcwd()
