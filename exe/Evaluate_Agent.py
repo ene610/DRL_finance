@@ -87,4 +87,3 @@ def eval_all(coin, pump_frame, dump_frame):
         agent.load_models(i)
         agent.evaluate(env).render_all(i)
 
-return
