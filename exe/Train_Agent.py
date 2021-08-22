@@ -32,13 +32,15 @@ def load_data(coin):
         df = df.drop(columns=['unix'])
         return df
 
-def iterative_train(coin):
+def iterative_train(coin,id_agent):
 
       data = load_data(coin)
       env = gym.make(id_str, df=data, frame_bound=(122,500), window_size=22,reward_option = "profit")
-      chkpt_dir = os.getcwd() + f"/trained_agents/DQN/{coin}"
+
+      chkpt_dir = os.getcwd() + f"/trained_agents/DuelingDDQNAgent/{id_agent}/{coin}"
       device = T.device("cuda" if T.cuda.is_available() else "cpu")
       obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
+
       agent =DQNAgent(gamma = 0.99,
                       epsilon = 1.0,
                       lr = 0.0001,
@@ -53,7 +55,8 @@ def iterative_train(coin):
                       seed = 1,
                       device = device,
                       n_neurons_layer=512,
-                      dropout=0.1
+                      dropout=0.1,
+                      id_agent = id_agent
                       )
 
       agent.train(env,coin,n_episodes=10, checkpoint_freq=10)

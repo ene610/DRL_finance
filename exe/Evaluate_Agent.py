@@ -5,6 +5,7 @@ from agents.DDqn_agent import DDQNAgent
 from agents.Duelling_DDqn_agent import DuelingDDQNAgent
 from agents.RDQN_agent import DRQNAgent
 import os
+import torch
 from env.ShortLongCTE_no_invalid import CryptoTradingEnv
 import gym
 
@@ -34,10 +35,21 @@ def load_data(coin):
     return df
 
 
-def eval_all(coin, pump_frame, dump_frame):
+def eval_all(coin, pump_frame, dump_frame, id_agent):
     data = load_data(coin)
     env = gym.make(id_str, df=data, frame_bound=pump_frame, window_size=22, reward_option="profit")
-    chkpt_dir = os.getcwd() + f"/trained_agents/DQN/{coin}"
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    chkpt_dir = os.getcwd() + f"/trained_agents/DuelingDDQNAgent/{id_agent}/{coin}"
+    save_fig_path = os.getcwd() + f"/plot/DuelingDDQNAgent/{id_agent}/{coin}"
+
+    save_fig_path_pump = save_fig_path + "/pump"
+    save_fig_path_dump = save_fig_path + "/dump"
+
+    if not os.path.exists(save_fig_path_pump):
+        os.makedirs(save_fig_path_pump)
+
+    if not os.path.exists(save_fig_path_dump):
+        os.makedirs(save_fig_path_dump)
 
     print("PUMP")
     obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
@@ -55,12 +67,13 @@ def eval_all(coin, pump_frame, dump_frame):
                              seed=1,
                              device=device,
                              n_neurons_layer=512,
-                             dropout=0.1
+                             dropout=0.1,
+                             id_agent = id_agent
                              )
 
     for i in range(10, 100, 10):
         agent.load_models(i)
-        agent.evaluate(env).render_all(i)
+        agent.evaluate(env,save_fig_path_pump,coin,i).render_all(i)
 
     print("DUMP")
     env = gym.make(id_str, df=data, frame_bound=dump_frame, window_size=22, reward_option="profit")
@@ -85,5 +98,5 @@ def eval_all(coin, pump_frame, dump_frame):
 
     for i in range(10, 100, 10):
         agent.load_models(i)
-        agent.evaluate(env).render_all(i)
+        agent.evaluate(env,save_fig_path_dump,coin,i).render_all(i)
 

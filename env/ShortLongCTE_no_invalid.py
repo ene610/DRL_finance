@@ -491,7 +491,7 @@ class CryptoTradingEnv(gym.Env):
 
         return obs
 
-    def render_all(self, episode = 0):
+    def render_all(self, episode = 0,savepath = None):
 
         fig, axs = plt.subplots(2, figsize=(15, 6))
         window_ticks = np.arange(len(self._position_history))
@@ -521,7 +521,12 @@ class CryptoTradingEnv(gym.Env):
 
         sharpe_ratio = self.sharpe_calculator_total_quantstats()
         sortino_ratio = self.sortino_calculator_total_quantstats()
-        #
+
+        if savepath != None:
+            plt.savefig(f"{savepath}{episode}")
+            plt.close()
+
+
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
             "Total Profit: %.6f" % self._total_profit + ' ~ ' +

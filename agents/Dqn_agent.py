@@ -101,19 +101,17 @@ class DeepQNetwork(nn.Module):
         return action
 
     def save_checkpoint(self, path):
-        print('... saving checkpoint ...')
         T.save(self.state_dict(), path)
 
     def load_checkpoint(self, path):
-        #print('... loading checkpoint ...')
         self.load_state_dict(T.load(path))
 
 
 class DQNAgent(object):
 
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
-                 mem_size, batch_size, eps_min=0.01, eps_dec=5e-7,
-                 replace=1000, chkpt_dir='tmp/dqn', seed=1, device="cpu", n_neurons_layer=512, dropout=0.1):
+                 mem_size, batch_size, id_agent, eps_min=0.01, eps_dec=5e-7,
+                 replace=1000,chkpt_dir='tmp/dqn', seed=1, device="cpu", n_neurons_layer=512, dropout=0.1):
 
         self.gamma = gamma
         self.epsilon = epsilon
@@ -128,7 +126,7 @@ class DQNAgent(object):
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
         self.seed = seed
-        self.writer = SummaryWriter(f"Tensorboard plot/DQN")
+        self.writer = SummaryWriter(f"Tensorboard plot/DQN/{id_agent}")
 
         #/trained_agent/nome_agent/coin/episodio
         #{fuori                        }{interno}
@@ -275,7 +273,7 @@ class DQNAgent(object):
 
         return env
 
-    def evaluate(self, env):
+    def evaluate(self, env, coin, episode):
 
         self.epsilon = 0
         self.q_eval.eval()
@@ -288,6 +286,16 @@ class DQNAgent(object):
             observation_, reward, done, info = env.step(action)
             observation_ = self.convert_obs(observation_, self.input_dims)
             observation = observation_
+
+        sharpe_ratio = env.sharpe_calculator_total_quantstats()
+        sortino_ratio = env.sortino_calculator_total_quantstats()
+        total_profit = env._total_profit
+        total_reward = env._total_reward
+
+        self.writer.add_scalar(f"Profit/eval/{coin}", total_profit, episode)
+        self.writer.add_scalar(f"Reward/eval/{coin}", total_reward, episode)
+        self.writer.add_scalar(f"Sharpe/eval/{coin}", sharpe_ratio, episode)
+        self.writer.add_scalar(f"Sortino/eval/{coin}", sortino_ratio, episode)
 
         return env
 
