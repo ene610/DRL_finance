@@ -1,0 +1,2 @@
+env_id;parameter
+30;{'frame_bound': (200, 250), 'reward_option': 'profit', 'window_size': 22, 'position_in_observation': True, 'indicators': ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']}

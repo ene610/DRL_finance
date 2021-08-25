@@ -1,11 +1,4 @@
-from gym.utils import seeding
-import gym
-from gym import spaces
-import numpy as np
-from enum import Enum
-import matplotlib.pyplot as plt
-
-from indicators import Indicators
+from junk.indicators import Indicators
 from gym.utils import seeding
 import gym
 from gym import spaces

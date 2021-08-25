@@ -73,7 +73,7 @@ def eval_all(coin, pump_frame, dump_frame, id_agent):
 
     for i in range(10, 100, 10):
         agent.load_models(i)
-        agent.evaluate(env,save_fig_path_pump,coin,i).render_all(i)
+        agent.evaluate(env,coin,i).render_all(i,savepath = save_fig_path_pump)
 
     print("DUMP")
     env = gym.make(id_str, df=data, frame_bound=dump_frame, window_size=22, reward_option="profit")
@@ -98,5 +98,5 @@ def eval_all(coin, pump_frame, dump_frame, id_agent):
 
     for i in range(10, 100, 10):
         agent.load_models(i)
-        agent.evaluate(env,save_fig_path_dump,coin,i).render_all(i)
+        agent.evaluate(env,coin,i).render_all(i, savepath = save_fig_path_dump)
 

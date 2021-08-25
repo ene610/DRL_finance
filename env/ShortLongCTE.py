@@ -4,7 +4,7 @@ from gym import spaces
 import numpy as np
 from enum import Enum
 import matplotlib.pyplot as plt
-from indicators import Indicators
+from junk.indicators import Indicators
 import pandas as pd
 pd.options.mode.chained_assignment = None
 

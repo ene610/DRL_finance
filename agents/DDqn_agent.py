@@ -255,8 +255,8 @@ class DDQNAgent(object):
             scores.append(score)
             steps_array.append(n_steps)
 
-            self.writer.add_scalar(f"Loss/train/{coin}", loss, i)
-            self.writer.add_scalar(f"Reward/train/{coin}", score, i)
+            self.writer.add_scalar(f"Train/Loss/{coin}", loss, i)
+            self.writer.add_scalar(f"Train/Reward/{coin}", score, i)
 
             avg_scores = np.average(scores)
             print('episode: ', i, 'score: ', score, ' average score %.1f' % avg_scores, 'best score %.2f' % best_score,
@@ -293,10 +293,10 @@ class DDQNAgent(object):
         total_profit = env._total_profit
         total_reward = env._total_reward
 
-        self.writer.add_scalar(f"Profit/eval/{coin}", total_profit, episode)
-        self.writer.add_scalar(f"Reward/eval/{coin}", total_reward, episode)
-        self.writer.add_scalar(f"Sharpe/eval/{coin}", sharpe_ratio, episode)
-        self.writer.add_scalar(f"Sortino/eval/{coin}", sortino_ratio, episode)
+        self.writer.add_scalar(f"Eval/Profit/{coin}", total_profit, episode)
+        self.writer.add_scalar(f"Eval/Reward/{coin}", total_reward, episode)
+        self.writer.add_scalar(f"Eval/Sharpe/{coin}", sharpe_ratio, episode)
+        self.writer.add_scalar(f"Eval/Sortino/{coin}", sortino_ratio, episode)
 
 
         return env

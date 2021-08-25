@@ -1,0 +1,2 @@
+agent_id;hyperparameter
+1;{'agent_type': 'DQN', 'gamma': 0.99, 'epsilon': 0.9, 'lr': 0.001, 'input_dims': 22, 'mem_size': 1000, 'batch_size': 64, 'eps_min': 0.01, 'eps_dec': 5e-07, 'replace': 1000, 'n_neurons_layer': 512, 'dropout': 0.1}

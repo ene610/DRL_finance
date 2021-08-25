@@ -6,7 +6,7 @@ from enum import Enum
 import matplotlib.pyplot as plt
 import pandas as pd
 import math
-from indicators import Indicators
+from junk.indicators import Indicators
 
 pd.options.mode.chained_assignment = None
 import quantstats as qs
@@ -491,7 +491,7 @@ class CryptoTradingEnv(gym.Env):
 
         return obs
 
-    def render_all(self, episode = 0,savepath = None):
+    def render_all(self, episode = 0, savepath = None):
 
         fig, axs = plt.subplots(2, figsize=(15, 6))
         window_ticks = np.arange(len(self._position_history))
@@ -522,19 +522,18 @@ class CryptoTradingEnv(gym.Env):
         sharpe_ratio = self.sharpe_calculator_total_quantstats()
         sortino_ratio = self.sortino_calculator_total_quantstats()
 
-        if savepath != None:
-            plt.savefig(f"{savepath}{episode}")
-            plt.close()
-
-
         plt.suptitle(
             "Total Reward: %.6f" % self._total_reward + ' ~ ' +
             "Total Profit: %.6f" % self._total_profit + ' ~ ' +
             f"Episode: {episode}" + ' ~ ' +
             f"Sortino: {sortino_ratio}"  + ' ~ ' +
-            f"Sharpe Ratio: {sharpe_ratio}"
+            f"Sharpe Ratio: {sharpe_ratio}")
 
-        )
+        if savepath != None:
+            plt.savefig(f"{savepath}/{episode}")
+            plt.close()
+
+
 
     def close(self):
         plt.close()

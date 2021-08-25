@@ -4,7 +4,7 @@ from gym import spaces
 from gym.utils import seeding
 import numpy as np
 import matplotlib.pyplot as plt
-from indicators import Indicators
+from junk.indicators import Indicators
 
 class Actions(Enum):
     # Mappo sono le azioni legittime nella forma:

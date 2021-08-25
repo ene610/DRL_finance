@@ -193,7 +193,7 @@ class EpisodeMemory():
 
 class DRQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
-                 mem_size, batch_size, id_agent, eps_min=0.01, eps_dec=5e-7,
+                 mem_size, batch_size, agent_id, eps_min=0.01, eps_dec=5e-7,
                  replace=1000, chkpt_dir='tmp/dqn', random_update=True,
                  lookup_step=10, max_epi_len=3000, device="cpu", seed=1, n_neurons_layer=512, dropout=0.1):
         self.gamma = gamma
@@ -218,7 +218,7 @@ class DRQNAgent(object):
         self.max_epi_len = max_epi_len
         self.device = device
         self.seed = seed
-        self.writer = SummaryWriter(f"Tensorboard plot/DRQN/{id_agent}")
+        self.writer = SummaryWriter(f"Tensorboard plot/DRQN/{agent_id}")
 
         self.q_eval = DeepQNetwork(self.lr,
                                    self.n_actions,
@@ -346,7 +346,7 @@ class DRQNAgent(object):
     def convert_obs(self, obs, obs_size):
         return obs.reshape(1, obs_size)
 
-    def evaluate(self, env):
+    def evaluate(self, env, coin, episode):
 
         self.q_eval.eval()
         self.epsilon = 0
@@ -361,6 +361,17 @@ class DRQNAgent(object):
             observation_, reward, done, info = env.step(action)
             observation_ = self.convert_obs(observation_, self.input_dims)
             observation = observation_
+
+        sharpe_ratio = env.sharpe_calculator_total_quantstats()
+        sortino_ratio = env.sortino_calculator_total_quantstats()
+        total_profit = env._total_profit
+        total_reward = env._total_reward
+
+        self.writer.add_scalar(f"Eval/Profit/{coin}", total_profit, episode)
+        self.writer.add_scalar(f"Eval/Reward/{coin}", total_reward, episode)
+        self.writer.add_scalar(f"Eval/Sharpe/{coin}", sharpe_ratio, episode)
+        self.writer.add_scalar(f"Eval/Sortino/{coin}", sortino_ratio, episode)
+
 
         return env
 
@@ -385,7 +396,10 @@ class DRQNAgent(object):
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, self.input_dims)
 
-                self.store_transition([observation, action, reward, observation_, done])
+                done_mask = 0.0 if done else 1.0
+
+
+                self.store_transition([observation, action, reward, observation_, done_mask])
 
                 score += reward
                 observation = observation_
@@ -394,15 +408,15 @@ class DRQNAgent(object):
 
                 if episode > self.batch_size:
                     loss_iteration = self.learn()
+                    if loss_iteration != None:
+                        loss += loss_iteration
 
-                if loss_iteration != None:
-                    loss += loss_iteration
 
             self.store_episode()
             self.reset_buffer()
 
-            self.writer.add_scalar(f"Loss/train/{coin}", loss, episode)
-            self.writer.add_scalar(f"Reward/train/{coin}", score, episode)
+            self.writer.add_scalar(f"Train/Loss/{coin}", loss, episode)
+            self.writer.add_scalar(f"Train/Reward/{coin}", score, episode)
 
             if episode % checkpoint_freq == 0:
                 if os.path.exists(self.chkpt_dir + f"/episode{episode}"):
