@@ -1,4 +1,4 @@
-from junk.indicators import Indicators
+from indicators import Indicators
 from gym.utils import seeding
 import gym
 from gym import spaces

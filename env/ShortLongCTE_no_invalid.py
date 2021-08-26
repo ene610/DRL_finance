@@ -6,7 +6,7 @@ from enum import Enum
 import matplotlib.pyplot as plt
 import pandas as pd
 import math
-from junk.indicators import Indicators
+from indicators import Indicators
 
 pd.options.mode.chained_assignment = None
 import quantstats as qs

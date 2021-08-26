@@ -82,6 +82,7 @@ def load_env(id_env, path):
     envs_csv = "tuning/envs.csv"
 
     df_env = pd.read_csv(path + "/" + envs_csv, sep=";")
+    print(df_env)
     df_env = df_env.set_index("env_id")
     envs = df_env.to_dict(orient="index")
     env = envs[id_env]
@@ -163,8 +164,7 @@ def select_agent(id_agent,env,coin):
     agent_hyperparameter["input_dims"] = obs_size
     agent_hyperparameter["chkpt_dir"] = chkpt_dir
     agent_hyperparameter["device"] = device
-    agent_hyperparameter["id_agent"] = 10
-
+    agent_hyperparameter["id_agent"] = id_agent
     agent = create_agent(agent_hyperparameter)
 
     return agent
@@ -210,7 +210,13 @@ def train_and_eval(agent_id, env_train_id, env_eval_ids, n_episodes=100, checkpo
 
 # creazione e selezione riga agent / env (sopra ci sono dict come esempio, gli agenti hanno bisogno di un env per la loro creazione)
 # path = os.getcwd() + "/"
-# env = select_env(20, "BTC")
+#env = select_env(22, "BTC")
 # create_agent(hyperparameter_DRQN)
 # drqn_agent = select_agent(100,env,"BTC")
 # print(drqn_agent.lookup_step)
+#train_and_eval(1,20,[22],n_episodes=15, checkpoint_freq=5)
+
+
+# env_parameter["env_id"] = 21
+# env_parameter["parameter"]["reward_option"] = "sharpe"
+# insert_env_row(env_parameter, os.getcwd())
