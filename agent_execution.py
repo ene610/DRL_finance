@@ -169,25 +169,48 @@ def select_agent(id_agent,env,coin):
 
     return agent
 
-def train_agent(coin, agent, env, n_episodes=100, checkpoint_freq=10):
+def train_agent(coin, agent, env, n_episodes, checkpoint_freq):
     agent.train(env, coin, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
 
-def evaluate_agent(coin, agent, env, id_agent, id_env, n_episodes=100, checkpoint_freq=10):
+def evaluate_agent(coin, agent, env, id_agent, id_env, n_episodes, checkpoint_freq):
+    #crea cartella per il plot
     save_fig_path = os.getcwd() + f"/plot/{id_agent}/{id_env}/{coin}"
     if not os.path.exists(save_fig_path):
         os.makedirs(save_fig_path)
-    for i in range(0, n_episodes, checkpoint_freq):
-        agent.load_models(i)
-        agent.evaluate(env,coin,i).render_all(i, savepath=save_fig_path,)
+    #iterativamente esegue la valutazione per tutti i check point creati in fase di train
+    for episode in range(0, n_episodes, checkpoint_freq):
+        agent.load_models(episode)
+        agent.evaluate(env, coin, episode).render_all(episode, savepath=save_fig_path)
 
-def train_and_eval(agent_id, env_train_id, env_eval_id, coin = "BTC", n_episodes=100, checkpoint_freq=10):
-    env_train = select_env(env_train_id, coin)
-    env_eval = select_env(env_eval_id, coin)
-    agent = select_agent(agent_id, env_train, coin)
-    train_agent(coin, agent, env_train, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
-    evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+#RICORDA 1: train_and_eval sovrascrive
+#               tutte le cartelle di train con agent_id e train_id uguali
+#               tutte le cartelle di eval con agent_id e eval_id uguali
 
+#RICORDA 2: se cancelli agents o env csv, ricreali mettendo l'header:
+#               env_row.to_csv(path + "/" + envs_csv, sep=";", mode='a')
+
+
+
+
+def train_and_eval(agent_id, env_train_id, env_eval_ids, n_episodes=100, checkpoint_freq=10):
+    #env_eval_ids array di id su cui l'agente verrà valutato
+    #train e eval vengono svolti su tutti i coin
+
+    for coin in ["BTC", "ETH", "ADA"]:
+
+        #Train
+        env_train = select_env(env_train_id, coin)
+        agent = select_agent(agent_id, env_train, coin)
+        train_agent(coin, agent, env_train, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+
+        #Eval su tutti gli ambienti scelti
+        for env_eval_id in env_eval_ids:
+            env_eval = select_env(env_eval_id, coin)
+            evaluate_agent(coin, agent, env_eval, agent_id, env_id=env_eval_id, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+
+# creazione e selezione riga agent / env (sopra ci sono dict come esempio, gli agenti hanno bisogno di un env per la loro creazione)
 # path = os.getcwd() + "/"
 # env = select_env(20, "BTC")
+# create_agent(hyperparameter_DRQN)
 # drqn_agent = select_agent(100,env,"BTC")
 # print(drqn_agent.lookup_step)

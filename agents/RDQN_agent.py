@@ -346,7 +346,7 @@ class DRQNAgent(object):
     def convert_obs(self, obs, obs_size):
         return obs.reshape(1, obs_size)
 
-    def evaluate(self, env, coin, episode):
+    def evaluate(self, env, coin, episode, env_id = None):
 
         self.q_eval.eval()
         self.epsilon = 0
@@ -367,11 +367,15 @@ class DRQNAgent(object):
         total_profit = env._total_profit
         total_reward = env._total_reward
 
-        self.writer.add_scalar(f"Eval/Profit/{coin}", total_profit, episode)
-        self.writer.add_scalar(f"Eval/Reward/{coin}", total_reward, episode)
-        self.writer.add_scalar(f"Eval/Sharpe/{coin}", sharpe_ratio, episode)
-        self.writer.add_scalar(f"Eval/Sortino/{coin}", sortino_ratio, episode)
+        if env_id:
+            tensorboard_path = f"Eval/{env_id}"
+        else:
+            tensorboard_path = "Eval"
 
+        self.writer.add_scalar(f"{tensorboard_path}/Profit/{coin}", total_profit, episode)
+        self.writer.add_scalar(f"{tensorboard_path}/Reward/{coin}", total_reward, episode)
+        self.writer.add_scalar(f"{tensorboard_path}/Sharpe/{coin}", sharpe_ratio, episode)
+        self.writer.add_scalar(f"{tensorboard_path}/Sortino/{coin}", sortino_ratio, episode)
 
         return env
 
