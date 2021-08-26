@@ -172,15 +172,15 @@ def select_agent(id_agent,env,coin):
 def train_agent(coin, agent, env, n_episodes, checkpoint_freq):
     agent.train(env, coin, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
 
-def evaluate_agent(coin, agent, env, id_agent, id_env, n_episodes, checkpoint_freq):
+def evaluate_agent(coin, agent, env, id_agent, env_id, n_episodes, checkpoint_freq):
     #crea cartella per il plot
-    save_fig_path = os.getcwd() + f"/plot/{id_agent}/{id_env}/{coin}"
+    save_fig_path = os.getcwd() + f"/plot/{id_agent}/{env_id}/{coin}"
     if not os.path.exists(save_fig_path):
         os.makedirs(save_fig_path)
     #iterativamente esegue la valutazione per tutti i check point creati in fase di train
     for episode in range(0, n_episodes, checkpoint_freq):
         agent.load_models(episode)
-        agent.evaluate(env, coin, episode).render_all(episode, savepath=save_fig_path)
+        agent.evaluate(env, coin, episode,env_id=env_id).render_all(episode, savepath=save_fig_path)
 
 #RICORDA 1: train_and_eval sovrascrive
 #               tutte le cartelle di train con agent_id e train_id uguali
