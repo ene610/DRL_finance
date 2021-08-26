@@ -193,7 +193,7 @@ class EpisodeMemory():
 
 class DRQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
-                 mem_size, batch_size, agent_id, eps_min=0.01, eps_dec=5e-7,
+                 mem_size, batch_size, id_agent, eps_min=0.01, eps_dec=5e-7,
                  replace=1000, chkpt_dir='tmp/dqn', random_update=True,
                  lookup_step=10, max_epi_len=3000, device="cpu", seed=1, n_neurons_layer=512, dropout=0.1):
         self.gamma = gamma
@@ -218,7 +218,7 @@ class DRQNAgent(object):
         self.max_epi_len = max_epi_len
         self.device = device
         self.seed = seed
-        self.writer = SummaryWriter(f"Tensorboard plot/DRQN/{agent_id}")
+        self.writer = SummaryWriter(f"Tensorboard plot/DRQN/{id_agent}")
 
         self.q_eval = DeepQNetwork(self.lr,
                                    self.n_actions,

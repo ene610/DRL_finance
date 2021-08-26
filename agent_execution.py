@@ -46,6 +46,28 @@ row = {
     "env_id": "20"
     }
 
+hyperparameter_DRQN = {
+    "agent_id" : 100,
+    "hyperparameter" : {
+        "agent_type": "DRQN",
+        "gamma": 0.99,
+        'epsilon': 0.9,
+        "lr": 0.001,
+        "input_dims": 22,
+        "mem_size": 1000,
+        "batch_size": 64,
+        "eps_min": 0.01,
+        "eps_dec": 5e-7,
+        "replace": 1000,
+        "n_neurons_layer": 512,
+        "dropout": 0.1,
+        #CAmbiano solo questi 3
+        "random_update":True,
+        "lookup_step":10,
+        "max_epi_len":3000,
+        }
+}
+
 def load_agent(id_agent, path):
     agents_csv = "tuning/agents.csv"
     df_agent = pd.read_csv(path + "/" + agents_csv, sep=";")
@@ -121,10 +143,6 @@ def create_agent(agent_hyperparameter):
 
     return agent
 
-
-def iterative_train(coin, agent, env):
-    agent.train(env, coin, n_episodes=100, checkpoint_freq=10)
-
 def select_env(id_env,coin):
     path = os.getcwd()
     env_paramenter = load_env(id_env, path)
@@ -132,6 +150,7 @@ def select_env(id_env,coin):
     return env
 
 def select_agent(id_agent,env,coin):
+
     path = os.getcwd()
     agent_hyperparameter = load_agent(id_agent, path)
     agent_type = agent_hyperparameter["agent_type"]
@@ -139,7 +158,6 @@ def select_agent(id_agent,env,coin):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
     n_actions = env.action_space.n
-
 
     agent_hyperparameter["n_actions"] = n_actions
     agent_hyperparameter["input_dims"] = obs_size
@@ -151,8 +169,25 @@ def select_agent(id_agent,env,coin):
 
     return agent
 
-coin = "BTC"
-env = select_env(20,coin)
-agent = select_agent(1, env, coin)
+def train_agent(coin, agent, env, n_episodes=100, checkpoint_freq=10):
+    agent.train(env, coin, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
 
+def evaluate_agent(coin, agent, env, id_agent, id_env, n_episodes=100, checkpoint_freq=10):
+    save_fig_path = os.getcwd() + f"/plot/{id_agent}/{id_env}/{coin}"
+    if not os.path.exists(save_fig_path):
+        os.makedirs(save_fig_path)
+    for i in range(0, n_episodes, checkpoint_freq):
+        agent.load_models(i)
+        agent.evaluate(env,coin,i).render_all(i, savepath=save_fig_path,)
 
+def train_and_eval(agent_id, env_train_id, env_eval_id, coin = "BTC", n_episodes=100, checkpoint_freq=10):
+    env_train = select_env(env_train_id, coin)
+    env_eval = select_env(env_eval_id, coin)
+    agent = select_agent(agent_id, env_train, coin)
+    train_agent(coin, agent, env_train, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+    evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+
+# path = os.getcwd() + "/"
+# env = select_env(20, "BTC")
+# drqn_agent = select_agent(100,env,"BTC")
+# print(drqn_agent.lookup_step)
