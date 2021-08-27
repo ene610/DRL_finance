@@ -210,33 +210,6 @@ def train_agent_on_env(agent_id, env_train_id, n_episodes=100, checkpoint_freq=1
         env_train = select_env(env_train_id, coin)
         agent = select_agent(agent_id, env_train, coin)
         train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
-# creazione e selezione riga agent / env (sopra ci sono dict come esempio, gli agenti hanno bisogno di un env per la loro creazione)
-# path = os.getcwd() + "/"
-#env = select_env(22, "BTC")
-# create_agent(hyperparameter_DRQN)
-# drqn_agent = select_agent(100,env,"BTC")
-# print(drqn_agent.lookup_step)
-#train_and_eval(1,20,[22],n_episodes=15, checkpoint_freq=5)
-
-
-# env_parameter["env_id"] = 21
-# env_parameter["parameter"]["reward_option"] = "sharpe"
-# insert_env_row(env_parameter, os.getcwd())
-
-
-path = os.getcwd()
-id_agent = 1000
-
-
-path = os.getcwd()
-
-#insert_agent_row(hyperparameter,path)
-
-env = select_env(20,"BTC")
-print(env.frame_bound)
-agent = select_agent(1,env,"BTC")
-print(agent.lr)
-
 
 
 
