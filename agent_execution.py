@@ -82,7 +82,6 @@ def load_env(id_env, path):
     envs_csv = "tuning/envs.csv"
 
     df_env = pd.read_csv(path + "/" + envs_csv, sep=";")
-    print(df_env)
     df_env = df_env.set_index("env_id")
     envs = df_env.to_dict(orient="index")
     env = envs[id_env]
@@ -208,6 +207,14 @@ def train_and_eval(agent_id, env_train_id, env_eval_ids, n_episodes=100, checkpo
             env_eval = select_env(env_eval_id, coin)
             evaluate_agent(coin, agent, env_eval, agent_id, env_id=env_eval_id, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
 
+def train_agent(agent_id, env_train_id, n_episodes=100, checkpoint_freq=10):
+
+    for coin in ["BTC", "ETH", "ADA"]:
+
+        #Train
+        env_train = select_env(env_train_id, coin)
+        agent = select_agent(agent_id, env_train, coin)
+        train_agent(coin, agent, env_train, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
 # creazione e selezione riga agent / env (sopra ci sono dict come esempio, gli agenti hanno bisogno di un env per la loro creazione)
 # path = os.getcwd() + "/"
 #env = select_env(22, "BTC")
