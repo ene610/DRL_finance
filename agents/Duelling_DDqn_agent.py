@@ -80,7 +80,7 @@ class DuelingDeepQNetwork(nn.Module):
         self.V = nn.Linear(n_neurons_layer, 1)
         self.A = nn.Linear(n_neurons_layer, n_actions)
 
-        self.optimizer = optim.RMSprop(self.parameters(), lr=lr)
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
 
         self.device = device

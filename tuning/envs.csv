@@ -1,6 +1,2 @@
-env_id;parameter
-20;{'frame_bound': (100, 151), 'reward_option': 'profit', 'window_size': 22, 'position_in_observation': True, 'indicators': ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']}
-21;{'frame_bound': (300, 351), 'reward_option': 'profit', 'window_size': 22, 'position_in_observation': True, 'indicators': ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']}
-22;{'frame_bound': (500, 551), 'reward_option': 'profit', 'window_size': 22, 'position_in_observation': True, 'indicators': ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']}
-23;{'frame_bound': (700, 751), 'reward_option': 'profit', 'window_size': 22, 'position_in_observation': True, 'indicators': ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']}
-
+env_id;frame_bound;reward_option;window_size;position_in_observation;indicators
+20;(200, 250);profit;22;True;['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']

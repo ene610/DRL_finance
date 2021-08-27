@@ -9,9 +9,9 @@ from agents.RDQN_agent import DRQNAgent
 import torch
 from env.ShortLongCTE_no_invalid import CryptoTradingEnv
 
-hyperparameter = {
+hyperparameter_dummy = {
     "agent_id" : 1,
-    "hyperparameter" : {
+
         "agent_type": "DQN",
         "gamma": 0.99,
         'epsilon': 0.9,
@@ -23,32 +23,26 @@ hyperparameter = {
         "eps_dec": 5e-7,
         "replace": 1000,
         "n_neurons_layer": 512,
-        "dropout": 0.1
-        }
+        "dropout": 0.1,
+        "random_update": None,
+        "lookup_step": None,
+        "max_epi_len": None,
+
 }
 
-env_parameter = {
+env_parameter_dummy = {
     "env_id": 20,
-    "parameter" : {
-        "frame_bound" : (200, 250),
-        #"frame_bound_low": 200,
-        #"frame_bound_high": 250,
-        "reward_option": "profit",
-        "window_size": 22,
-        "position_in_observation" : True,
-        "indicators": ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']
-    }
+    "frame_bound" : (200, 250),
+    "reward_option": "profit",
+    "window_size": 22,
+    "position_in_observation" : True,
+    "indicators": ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']
 }
 
-row = {
-    "agent_type": "DQN",
-    "agent_id": "1",
-    "env_id": "20"
-    }
 
-hyperparameter_DRQN = {
+hyperparameter_DRQN_dummy = {
     "agent_id" : 100,
-    "hyperparameter" : {
+
         "agent_type": "DRQN",
         "gamma": 0.99,
         'epsilon': 0.9,
@@ -61,20 +55,20 @@ hyperparameter_DRQN = {
         "replace": 1000,
         "n_neurons_layer": 512,
         "dropout": 0.1,
-        #CAmbiano solo questi 3
+        #Cambiano solo questi 3
         "random_update":True,
         "lookup_step":10,
         "max_epi_len":3000,
-        }
+
 }
 
 def load_agent(id_agent, path):
     agents_csv = "tuning/agents.csv"
     df_agent = pd.read_csv(path + "/" + agents_csv, sep=";")
     df_agent = df_agent.set_index("agent_id")
-    agents = df_agent.to_dict(orient="index")
-    agent = agents[id_agent]
-    agent_hyperparameter = ast.literal_eval(agent["hyperparameter"])
+    row_agent = df_agent.loc[id_agent, :].dropna(axis=0, inplace=False)
+    agent_hyperparameter = row_agent.to_dict()
+
     return agent_hyperparameter
 
 def load_env(id_env, path):
@@ -83,9 +77,10 @@ def load_env(id_env, path):
 
     df_env = pd.read_csv(path + "/" + envs_csv, sep=";")
     df_env = df_env.set_index("env_id")
-    envs = df_env.to_dict(orient="index")
-    env = envs[id_env]
-    env_parameter = ast.literal_eval(env["parameter"])
+    row_env = df_env.loc[id_env, :].dropna(axis=0, inplace=False)
+    env_parameter = row_env.to_dict()
+    #convert string into tuple
+    env_parameter["frame_bound"] = ast.literal_eval(env_parameter["frame_bound"])
     return env_parameter
 
 def insert_agent_row(agent_hyperparameter, path):
@@ -200,21 +195,21 @@ def train_and_eval(agent_id, env_train_id, env_eval_ids, n_episodes=100, checkpo
         #Train
         env_train = select_env(env_train_id, coin)
         agent = select_agent(agent_id, env_train, coin)
-        train_agent(coin, agent, env_train, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+        train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
 
         #Eval su tutti gli ambienti scelti
         for env_eval_id in env_eval_ids:
             env_eval = select_env(env_eval_id, coin)
-            evaluate_agent(coin, agent, env_eval, agent_id, env_id=env_eval_id, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+            evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes, checkpoint_freq)
 
-def train_agent(agent_id, env_train_id, n_episodes=100, checkpoint_freq=10):
+def train_agent_on_env(agent_id, env_train_id, n_episodes=100, checkpoint_freq=10):
 
     for coin in ["BTC", "ETH", "ADA"]:
 
         #Train
         env_train = select_env(env_train_id, coin)
         agent = select_agent(agent_id, env_train, coin)
-        train_agent(coin, agent, env_train, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+        train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
 # creazione e selezione riga agent / env (sopra ci sono dict come esempio, gli agenti hanno bisogno di un env per la loro creazione)
 # path = os.getcwd() + "/"
 #env = select_env(22, "BTC")
@@ -227,3 +222,21 @@ def train_agent(agent_id, env_train_id, n_episodes=100, checkpoint_freq=10):
 # env_parameter["env_id"] = 21
 # env_parameter["parameter"]["reward_option"] = "sharpe"
 # insert_env_row(env_parameter, os.getcwd())
+
+
+path = os.getcwd()
+id_agent = 1000
+
+
+path = os.getcwd()
+
+#insert_agent_row(hyperparameter,path)
+
+env = select_env(20,"BTC")
+print(env.frame_bound)
+agent = select_agent(1,env,"BTC")
+print(agent.lr)
+
+
+
+

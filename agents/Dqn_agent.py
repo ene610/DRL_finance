@@ -79,9 +79,9 @@ class DeepQNetwork(nn.Module):
         nn.init.xavier_uniform_(self.fc4.weight)
         nn.init.xavier_uniform_(self.fc5.weight)
 
-        self.optimizer = optim.adam(self.parameters(), lr=lr)
-
+        self.optimizer = optim.Adam(self.parameters(), lr=lr)
         self.loss = nn.MSELoss()
+
         self.device = device
         self.to(self.device)
 
