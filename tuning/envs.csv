@@ -1,2 +1,4 @@
 env_id;frame_bound;reward_option;window_size;position_in_observation;indicators
 20;(200, 250);profit;22;True;['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']
+21;(200, 600);profit;22;True;['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']
+22;(350, 400);profit;22;True;['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']

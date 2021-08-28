@@ -186,11 +186,9 @@ def evaluate_agent(coin, agent, env, id_agent, env_id, n_episodes, checkpoint_fr
 
 
 
-def train_and_eval(agent_id, env_train_id, env_eval_ids, n_episodes=100, checkpoint_freq=10):
+def train_and_eval(agent_id, env_train_id, env_eval_ids, coin, n_episodes=100, checkpoint_freq=10):
     #env_eval_ids array di id su cui l'agente verrà valutato
-    #train e eval vengono svolti su tutti i coin
-
-    for coin in ["BTC", "ETH", "ADA"]:
+    #train e eval vengono svolti su un singolo coin
 
         #Train
         env_train = select_env(env_train_id, coin)
@@ -202,14 +200,40 @@ def train_and_eval(agent_id, env_train_id, env_eval_ids, n_episodes=100, checkpo
             env_eval = select_env(env_eval_id, coin)
             evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes, checkpoint_freq)
 
-def train_agent_on_env(agent_id, env_train_id, n_episodes=100, checkpoint_freq=10):
-
-    for coin in ["BTC", "ETH", "ADA"]:
+def train_agent_on_env(agent_id, env_train_id, coin, n_episodes=100, checkpoint_freq=10):
 
         #Train
         env_train = select_env(env_train_id, coin)
         agent = select_agent(agent_id, env_train, coin)
         train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
 
-
-
+# hyperparameter_dummy = {
+#     "agent_id" : 1,
+#
+#         "agent_type": "DQN",
+#         "gamma": 0.99,
+#         'epsilon': 0.9,
+#         "lr": 0.001,
+#         "input_dims": 22,
+#         "mem_size": 1000,
+#         "batch_size": 10,
+#         "eps_min": 0.01,
+#         "eps_dec": 30e-5,
+#         "replace": 1000,
+#         "n_neurons_layer": 512,
+#         "dropout": 0.1,
+#         "random_update": None,
+#         "lookup_step": None,
+#         "max_epi_len": None,
+# }
+# path = os.getcwd()
+# N_id = 1
+# for i in [64,128,256]:
+#     for j in [0.1,0.2,0.3]:
+#         for k in [0.01,0.001,0.0001]:
+#             hyperparameter_dummy["agent_id"] = N_id
+#             hyperparameter_dummy["dropout"] = j
+#             hyperparameter_dummy["lr"] = k
+#             hyperparameter_dummy["n_neurons_layer"] = i
+#             N_id += 1
+#             insert_agent_row(hyperparameter_dummy,path)

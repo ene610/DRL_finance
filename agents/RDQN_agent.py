@@ -364,7 +364,7 @@ class DRQNAgent(object):
 
         sharpe_ratio = env.sharpe_calculator_total_quantstats()
         sortino_ratio = env.sortino_calculator_total_quantstats()
-        total_profit = env._total_profit
+        total_profit = list(env.returns_balance.values())[-1] - 10000
         total_reward = env._total_reward
 
         if env_id:
