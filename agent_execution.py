@@ -81,6 +81,7 @@ def load_env(id_env, path):
     env_parameter = row_env.to_dict()
     #convert string into tuple
     env_parameter["frame_bound"] = ast.literal_eval(env_parameter["frame_bound"])
+    env_parameter["indicators"] = ast.literal_eval(env_parameter["indicators"])
     return env_parameter
 
 def insert_agent_row(agent_hyperparameter, path):
@@ -140,8 +141,8 @@ def create_agent(agent_hyperparameter):
 
 def select_env(id_env,coin):
     path = os.getcwd()
-    env_paramenter = load_env(id_env, path)
-    env = create_env(env_paramenter, coin)
+    env_parameter = load_env(id_env, path)
+    env = create_env(env_parameter, coin)
     return env
 
 def select_agent(id_agent,env,coin):
@@ -171,7 +172,7 @@ def evaluate_agent(coin, agent, env, id_agent, env_id, n_episodes, checkpoint_fr
     save_fig_path = os.getcwd() + f"/plot/{id_agent}/{env_id}/{coin}"
     if not os.path.exists(save_fig_path):
         os.makedirs(save_fig_path)
-    #iterativamente esegue la valutazione per tutti i check point creati in fase di train
+    #iterativamente esegue la valutazione per tutti i checkpoint creati in fase di train
     for episode in range(0, n_episodes, checkpoint_freq):
         agent.load_models(episode)
         agent.evaluate(env, coin, episode,env_id=env_id).render_all(episode, savepath=save_fig_path)
@@ -206,6 +207,15 @@ def train_agent_on_env(agent_id, env_train_id, coin, n_episodes=100, checkpoint_
         env_train = select_env(env_train_id, coin)
         agent = select_agent(agent_id, env_train, coin)
         train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
+
+
+def eval_agent_on_env(agent_id, env_train_id, env_eval_ids, coin, n_episodes=100, checkpoint_freq=10):
+    # Train
+    env_train = select_env(env_train_id, coin)
+    agent = select_agent(agent_id, env_train, coin)
+    for env_eval_id in env_eval_ids:
+        env_eval = select_env(env_eval_id, coin)
+        evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes, checkpoint_freq)
 
 # hyperparameter_dummy = {
 #     "agent_id" : 1,
