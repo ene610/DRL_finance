@@ -59,7 +59,6 @@ class CryptoTradingEnv(gym.Env):
         self.frame_bound = frame_bound
         self.window_size = window_size
         self.prices, self.signal_features = self._process_data()
-
         self.position_in_observation = position_in_observation
 
         if self.position_in_observation:
@@ -119,8 +118,10 @@ class CryptoTradingEnv(gym.Env):
 
         self.returns_balance = dict()
         self.returns_balance[self._current_tick] = 10000
+        obs = self._get_observation()
+        #init obs
 
-        return self._get_observation()
+        return obs
 
     # change in sharpe_ratio_reward
     def sharpe_calculator(self, current_balance, rf=0):
@@ -189,7 +190,6 @@ class CryptoTradingEnv(gym.Env):
             return self.profit_close_short()
         else:
             return 0
-
 
     def profit_holding_long(self):
         current_price = self.prices[self._current_tick]
@@ -473,8 +473,8 @@ class CryptoTradingEnv(gym.Env):
             self._total_profit += profit
 
     def _get_observation(self):
+
         signal_obs = self.signal_features[(self._current_tick - self.window_size): self._current_tick]
-        # obs = []
 
         if self.position_in_observation:
             # 1. Prendere le ultime window_size righe di history_position
@@ -537,7 +537,6 @@ class CryptoTradingEnv(gym.Env):
 
     def close(self):
         plt.close()
-        # print
 
     def save_rendering(self, filepath):
         plt.savefig(filepath)
@@ -547,30 +546,20 @@ class CryptoTradingEnv(gym.Env):
 
     def _process_data(self):
 
-        prices = self.df['close'].to_numpy()
-
-        # prices[self.frame_bound[0] - self.window_size]  # validate index (TODO: Improve validation)
+        prices = self.df['close']
         prices = prices[self.frame_bound[0] - self.window_size: self.frame_bound[1]]
 
-        # diff = np.insert(np.diff(prices), 0, 0)
-        # signal_features = np.column_stack((prices, diff))
 
         signal_features = Indicators.sma_indicator(self.df)
         signal_features = Indicators.macd_indicator(signal_features)
         signal_features = Indicators.atr_indicator(signal_features)
         signal_features = Indicators.ema_indicator(signal_features)
         signal_features = Indicators.kc_indicator(signal_features)
-
         signal_features = Indicators.rsi_indicator(signal_features)
         signal_features = Indicators.mom_indicator(signal_features)
         signal_features = Indicators.vhf_indicator(signal_features)
         signal_features = Indicators.trix_indicator(signal_features)
         signal_features = Indicators.rocv_indicator(signal_features)
-
-        # diff_close_pct_5 = differenza percentuale tra il close alla candela attuale e quello della candela di 5 timestamps fa?
-        # df['diff_close_pct_5'] = ((df['close'] / np.roll(df['close'], shift=(int(5)))) * 100) - 100
-        # df['diff_close_pct_10'] = ((df['close'] / np.roll(df['close'], shift=(int(10)))) * 100) - 100
-        # df['diff_close_pct_15'] = ((df['close'] / np.roll(df['close'], shift=(int(15)))) * 100) - 100
         signal_features['diff_pct_1'] = ((self.df['close'] / np.roll(self.df['close'], shift=(int(1)))) * 100) - 100
         signal_features['diff_pct_5'] = ((self.df['close'] / np.roll(self.df['close'], shift=(int(5)))) * 100) - 100
         signal_features['diff_pct_15'] = ((self.df['close'] / np.roll(self.df['close'], shift=(int(15)))) * 100) - 100
@@ -578,13 +567,16 @@ class CryptoTradingEnv(gym.Env):
 
         # signal_features = signal_features.drop(columns=['open', 'high', 'low', 'close', 'volume', 'tradecount'])
         # signal_features = signal_features.dropna()
-
+        signal_features = signal_features[self.frame_bound[0] - self.window_size: self.frame_bound[1]]
         signal_features.reset_index(drop=True, inplace=True)
 
         signal_features = self.filter_indicators(signal_features)
         signal_features = signal_features.round(decimals=3)
 
-        return prices, signal_features.to_numpy()
+        np_signal_feature = signal_features.to_numpy()
+        np_prices = prices.to_numpy()
+
+        return np_prices, np_signal_feature
 
         #############################################################################################################
 

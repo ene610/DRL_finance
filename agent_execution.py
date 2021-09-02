@@ -217,6 +217,7 @@ def eval_agent_on_env(agent_id, env_train_id, env_eval_ids, coin, n_episodes=100
         env_eval = select_env(env_eval_id, coin)
         evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes, checkpoint_freq)
 
+
 # hyperparameter_dummy = {
 #     "agent_id" : 1,
 #
