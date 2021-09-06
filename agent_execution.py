@@ -110,10 +110,10 @@ def insert_env_row(env_parameter, path):
 def load_data(coin):
     # Load data
     path = os.getcwd()
-    project_folder_string = "DRL_finance"
-    project_path = path.rsplit(project_folder_string, 1)[0] + project_folder_string
+    #project_folder_string = "DRL_finance"
+    #project_path = path.rsplit(project_folder_string, 1)[0] + project_folder_string
 
-    df = pd.read_csv(f"{project_path}/data/Binance_{coin}USDT_minute.csv", skiprows=1)
+    df = pd.read_csv(f"{path}/data/Binance_{coin}USDT_minute.csv", skiprows=1)
 
     df = df.rename(columns={'Volume USDT': 'volume'})
     df = df.iloc[::-1]
