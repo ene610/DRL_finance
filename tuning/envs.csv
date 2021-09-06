@@ -20,4 +20,5 @@ env_id;frame_bound;reward_option;window_size;position_in_observation;indicators
 38;(200, 400);sharpe;22;True;['EMA', 'MACD_signal_line', 'RSI']
 39;(400, 600);sharpe;22;True;['EMA', 'MACD_signal_line', 'RSI']
 40;(600, 800);sharpe;22;True;['EMA', 'MACD_signal_line', 'RSI']
+41;(1000, 1500);sharpe;22;True;['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']
 

@@ -39,6 +39,12 @@ env_parameter_dummy = {
     "indicators": ['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']
 }
 
+obs_type_dummy = {
+    "obs_type_id" : 2,
+    "position_in_observation": True,
+    "indicators": ['diff_pct_1', 'diff_pct_5', 'diff_pct_15',"diff_pct_22"]
+}
+
 
 hyperparameter_DRQN_dummy = {
     "agent_id" : 100,
@@ -71,18 +77,18 @@ def load_agent(id_agent, path):
 
     return agent_hyperparameter
 
-def load_env(id_env, path):
-
-    envs_csv = "tuning/envs.csv"
-
-    df_env = pd.read_csv(path + "/" + envs_csv, sep=";")
-    df_env = df_env.set_index("env_id")
-    row_env = df_env.loc[id_env, :].dropna(axis=0, inplace=False)
-    env_parameter = row_env.to_dict()
-    #convert string into tuple
-    env_parameter["frame_bound"] = ast.literal_eval(env_parameter["frame_bound"])
-    env_parameter["indicators"] = ast.literal_eval(env_parameter["indicators"])
-    return env_parameter
+# def load_env(id_env, path):
+#
+#     envs_csv = "tuning/envs.csv"
+#
+#     df_env = pd.read_csv(path + "/" + envs_csv, sep=";")
+#     df_env = df_env.set_index("env_id")
+#     row_env = df_env.loc[id_env, :].dropna(axis=0, inplace=False)
+#     env_parameter = row_env.to_dict()
+#     #convert string into tuple
+#     env_parameter["frame_bound"] = ast.literal_eval(env_parameter["frame_bound"])
+#     env_parameter["indicators"] = ast.literal_eval(env_parameter["indicators"])
+#     return env_parameter
 
 def insert_agent_row(agent_hyperparameter, path):
 
@@ -104,9 +110,11 @@ def insert_env_row(env_parameter, path):
 def load_data(coin):
     # Load data
     path = os.getcwd()
+    project_folder_string = "DRL_finance"
+    project_path = path.rsplit(project_folder_string, 1)[0] + project_folder_string
 
+    df = pd.read_csv(f"{project_path}/data/Binance_{coin}USDT_minute.csv", skiprows=1)
 
-    df = pd.read_csv(f"{path}/data/Binance_{coin}USDT_minute.csv", skiprows=1)
     df = df.rename(columns={'Volume USDT': 'volume'})
     df = df.iloc[::-1]
     df = df.drop(columns=['symbol', f"Volume {coin}"])
@@ -139,9 +147,9 @@ def create_agent(agent_hyperparameter):
 
     return agent
 
-def select_env(id_env,coin):
+def select_env(id_env,obs_type_id,coin):
     path = os.getcwd()
-    env_parameter = load_env(id_env, path)
+    env_parameter = load_env(id_env,obs_type_id, path)
     env = create_env(env_parameter, coin)
     return env
 
@@ -165,7 +173,7 @@ def select_agent(id_agent,env,coin):
     return agent
 
 def train_agent(coin, agent, env, n_episodes, checkpoint_freq):
-    agent.train(env, coin, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+    agent.train(env, coin, n_episodes = n_episodes, checkpoint_freq = checkpoint_freq)
 
 def evaluate_agent(coin, agent, env, id_agent, env_id, n_episodes, checkpoint_freq):
     #crea cartella per il plot
@@ -175,7 +183,7 @@ def evaluate_agent(coin, agent, env, id_agent, env_id, n_episodes, checkpoint_fr
     #iterativamente esegue la valutazione per tutti i checkpoint creati in fase di train
     for episode in range(0, n_episodes, checkpoint_freq):
         agent.load_models(episode)
-        agent.evaluate(env, coin, episode,env_id=env_id).render_all(episode, savepath=save_fig_path)
+        agent.evaluate(env, coin, episode, env_id=env_id).render_all(episode, savepath=save_fig_path)
 
 #RICORDA 1: train_and_eval sovrascrive
 #               tutte le cartelle di train con agent_id e train_id uguali
@@ -184,37 +192,70 @@ def evaluate_agent(coin, agent, env, id_agent, env_id, n_episodes, checkpoint_fr
 #RICORDA 2: se cancelli agents o env csv, ricreali mettendo l'header:
 #               env_row.to_csv(path + "/" + envs_csv, sep=";", mode='a')
 
+def insert_obs_type_row(obs_type, path):
+
+    obs_type_csv = "tuning/obs_type.csv"
+    agent_row = pd.DataFrame.from_dict(obs_type, orient='index')
+    agent_row = agent_row.transpose()
+    agent_row = agent_row.set_index("obs_type_id")
+
+    agent_row.to_csv(path + "/" + obs_type_csv, sep=";", mode='a', header=None)
+
+def load_env(id_env,obs_type_id, path):
+
+    envs_csv = "tuning/envs.csv"
+
+    df_env = pd.read_csv(path + "/" + envs_csv, sep=";")
+    df_env = df_env.set_index("env_id")
+    row_env = df_env.loc[id_env, :].dropna(axis=0, inplace=False)
+    env_parameter = row_env.to_dict()
+    #convert string into tuple
+    env_parameter["frame_bound"] = ast.literal_eval(env_parameter["frame_bound"])
+    obs_type_dict = select_obs_type(obs_type_id)
+    env_parameter["indicators"] = ast.literal_eval(obs_type_dict["indicators"])
+    env_parameter["position_in_observation"] = obs_type_dict["position_in_observation"]
+    return env_parameter
+
+def select_obs_type(obs_type_id):
+    obs_type_csv = "tuning/obs_type.csv"
+    path = os.getcwd()
+    df_env = pd.read_csv(path + "/" + obs_type_csv, sep=";")
+    df_env = df_env.set_index("obs_type_id")
+    row_env = df_env.loc[obs_type_id, :].dropna(axis=0, inplace=False)
+    obs_type_dict = row_env.to_dict()
 
 
+    return obs_type_dict
 
-def train_and_eval(agent_id, env_train_id, env_eval_ids, coin, n_episodes=100, checkpoint_freq=10):
+def train_and_eval(agent_id, env_train_id,obs_type_id, env_eval_ids, coin, n_episodes=100, checkpoint_freq=10):
     #env_eval_ids array di id su cui l'agente verrà valutato
     #train e eval vengono svolti su un singolo coin
+    train_agent_on_env(agent_id, env_train_id, obs_type_id, coin, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+        # #Train
+        # env_train = select_env(env_train_id, coin)
+        # agent = select_agent(agent_id, env_train, coin)
+        # train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
+    eval_agent_on_env(agent_id, env_train_id, obs_type_id, env_eval_ids, coin, n_episodes=n_episodes, checkpoint_freq=checkpoint_freq)
+        # #Eval su tutti gli ambienti scelti
+        # for env_eval_id in env_eval_ids:
+        #     env_eval = select_env(env_eval_id, coin)
+        #     evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes, checkpoint_freq)
 
-        #Train
-        env_train = select_env(env_train_id, coin)
-        agent = select_agent(agent_id, env_train, coin)
-        train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
+def train_agent_on_env(agent_id, env_train_id, obs_type_id, coin, n_episodes=100, checkpoint_freq=10):
 
-        #Eval su tutti gli ambienti scelti
-        for env_eval_id in env_eval_ids:
-            env_eval = select_env(env_eval_id, coin)
-            evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes, checkpoint_freq)
-
-def train_agent_on_env(agent_id, env_train_id, coin, n_episodes=100, checkpoint_freq=10):
-
-        #Train
-        env_train = select_env(env_train_id, coin)
-        agent = select_agent(agent_id, env_train, coin)
-        train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
-
-
-def eval_agent_on_env(agent_id, env_train_id, env_eval_ids, coin, n_episodes=100, checkpoint_freq=10):
-    # Train
-    env_train = select_env(env_train_id, coin)
+    #Train
+    env_train = select_env(env_train_id, obs_type_id, coin)
     agent = select_agent(agent_id, env_train, coin)
+    train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
+
+def eval_agent_on_env(agent_id, env_train_id,obs_type_id, env_eval_ids, coin, n_episodes=100, checkpoint_freq=10):
+
+    # Train
+    env_train = select_env(env_train_id, obs_type_id, coin)
+    agent = select_agent(agent_id, env_train, coin)
+
     for env_eval_id in env_eval_ids:
-        env_eval = select_env(env_eval_id, coin)
+        env_eval = select_env(env_eval_id, obs_type_id, coin)
         evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes, checkpoint_freq)
 
 
@@ -248,3 +289,9 @@ def eval_agent_on_env(agent_id, env_train_id, env_eval_ids, coin, n_episodes=100
 #             hyperparameter_dummy["n_neurons_layer"] = i
 #             N_id += 1
 #             insert_agent_row(hyperparameter_dummy,path)
+
+
+# path = os.getcwd()
+# #insert_obs_type_row(obs_type_dummy, path)
+# env = load_env(31,1,path)
+# print(env)

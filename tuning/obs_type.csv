@@ -1,0 +1,3 @@
+obs_type_id;position_in_observation;indicators
+1;True;['diff_pct_1', 'diff_pct_5', 'diff_pct_15']
+2;True;['diff_pct_1', 'diff_pct_5', 'diff_pct_15', 'diff_pct_22']
