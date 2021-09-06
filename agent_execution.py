@@ -153,7 +153,7 @@ def select_env(id_env,obs_type_id,coin):
     env = create_env(env_parameter, coin)
     return env
 
-def select_agent(id_agent,env,coin):
+def select_agent(id_agent,env,coin,id_train_env,id_obs_type,):
 
     path = os.getcwd()
     agent_hyperparameter = load_agent(id_agent, path)
@@ -168,6 +168,8 @@ def select_agent(id_agent,env,coin):
     agent_hyperparameter["chkpt_dir"] = chkpt_dir
     agent_hyperparameter["device"] = device
     agent_hyperparameter["id_agent"] = id_agent
+    agent_hyperparameter["id_train_env"] = id_train_env
+    agent_hyperparameter["id_obs_type"] = id_obs_type
     agent = create_agent(agent_hyperparameter)
 
     return agent
@@ -175,9 +177,9 @@ def select_agent(id_agent,env,coin):
 def train_agent(coin, agent, env, n_episodes, checkpoint_freq):
     agent.train(env, coin, n_episodes = n_episodes, checkpoint_freq = checkpoint_freq)
 
-def evaluate_agent(coin, agent, env, id_agent, env_id, n_episodes, checkpoint_freq):
+def evaluate_agent(coin, agent, env, id_agent, env_id,obs_type_id, n_episodes, checkpoint_freq):
     #crea cartella per il plot
-    save_fig_path = os.getcwd() + f"/plot/{id_agent}/{env_id}/{coin}"
+    save_fig_path = os.getcwd() + f"/plot/{id_agent}/{env_id}/{coin}/{obs_type_id}"
     if not os.path.exists(save_fig_path):
         os.makedirs(save_fig_path)
     #iterativamente esegue la valutazione per tutti i checkpoint creati in fase di train
@@ -245,18 +247,18 @@ def train_agent_on_env(agent_id, env_train_id, obs_type_id, coin, n_episodes=100
 
     #Train
     env_train = select_env(env_train_id, obs_type_id, coin)
-    agent = select_agent(agent_id, env_train, coin)
+    agent = select_agent(agent_id, env_train, coin,env_train_id, obs_type_id,)
     train_agent(coin, agent, env_train, n_episodes, checkpoint_freq)
 
 def eval_agent_on_env(agent_id, env_train_id,obs_type_id, env_eval_ids, coin, n_episodes=100, checkpoint_freq=10):
 
     # Train
     env_train = select_env(env_train_id, obs_type_id, coin)
-    agent = select_agent(agent_id, env_train, coin)
+    agent = select_agent(agent_id, env_train, coin,env_train_id, obs_type_id)
 
     for env_eval_id in env_eval_ids:
         env_eval = select_env(env_eval_id, obs_type_id, coin)
-        evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, n_episodes, checkpoint_freq)
+        evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id,obs_type_id, n_episodes, checkpoint_freq)
 
 
 # hyperparameter_dummy = {

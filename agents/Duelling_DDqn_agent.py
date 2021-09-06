@@ -111,7 +111,7 @@ class DuelingDeepQNetwork(nn.Module):
 
 class DuelingDDQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
-                 mem_size, batch_size, id_agent, eps_min=0.01, eps_dec=5e-7,
+                 mem_size, batch_size, id_agent,id_train_env,id_obs_type, eps_min=0.01, eps_dec=5e-7,
                  replace=1000, chkpt_dir='tmp/dqn', seed=1, device="cpu", n_neurons_layer=512, dropout=0.1):
         self.gamma = gamma
         self.epsilon = epsilon
@@ -127,7 +127,7 @@ class DuelingDDQNAgent(object):
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
         self.seed = seed
-        self.writer = SummaryWriter(f"Tensorboard plot/Duelling_DDQN/{id_agent}")
+        self.writer = SummaryWriter(f"Tensorboard plot/Duelling_DDQN/{id_agent}/{id_train_env}/{id_obs_type}")
 
         self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions, self.seed)
 
