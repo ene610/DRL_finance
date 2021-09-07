@@ -199,23 +199,22 @@ class DRQNAgent(object):
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
-        self.n_actions = n_actions
-        self.input_dims = input_dims
-        self.batch_size = batch_size
+        self.n_actions = int(n_actions)
+        self.input_dims = int(input_dims)
+        self.batch_size = int(batch_size)
         self.eps_min = eps_min
         self.eps_dec = eps_dec
-        self.replace_target_cnt = replace
-
+        self.replace_target_cnt = int(replace)
+        self.n_neurons_layer = int(n_neurons_layer)
         self.chkpt_dir = chkpt_dir
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
-        self.batch_size = batch_size
         # random_update = True
 
         # DRQN param #episode buffer paraeter
         self.random_update = random_update
-        self.lookup_step = lookup_step
-        self.max_epi_len = max_epi_len
+        self.lookup_step = int(lookup_step)
+        self.max_epi_len = int(max_epi_len)
         self.device = device
         self.seed = seed
         self.writer = SummaryWriter(f"Tensorboard plot/DRQN/{id_agent}/{id_train_env}/{id_obs_type}")
@@ -224,23 +223,23 @@ class DRQNAgent(object):
                                    self.n_actions,
                                    input_dims=self.input_dims,
                                    device=self.device,
-                                   n_neurons_layer=n_neurons_layer,
+                                   n_neurons_layer=self.n_neurons_layer,
                                    dropout=dropout)
 
         self.q_next = DeepQNetwork(self.lr,
                                    self.n_actions,
                                    input_dims=self.input_dims,
                                    device=self.device,
-                                   n_neurons_layer=n_neurons_layer,
+                                   n_neurons_layer=self.n_neurons_layer,
                                    dropout=dropout)
 
         self.q_next.load_state_dict(self.q_eval.state_dict(), )
 
         self.episode_memory = EpisodeMemory(random_update=self.random_update,
                                             max_epi_num=100,
-                                            max_epi_len=max_epi_len,
-                                            batch_size=batch_size,
-                                            lookup_step=lookup_step,
+                                            max_epi_len=self.max_epi_len,
+                                            batch_size=self.batch_size,
+                                            lookup_step=self.lookup_step,
                                             seed=self.seed)
 
         self.episode_buffer = EpisodeBuffer()
