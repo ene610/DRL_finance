@@ -5,7 +5,7 @@ from pathlib import Path
 from agents.Dqn_agent import DQNAgent
 from agents.DDqn_agent import DDQNAgent
 from agents.Duelling_DDqn_agent import DuelingDDQNAgent
-from agents.RDQN_agent import DRQNAgent
+from agents.DRQN_agent import DRQNAgent
 import torch
 from env.ShortLongCTE_no_invalid import CryptoTradingEnv
 
@@ -158,7 +158,7 @@ def select_agent(id_agent,env,coin,id_train_env,id_obs_type,):
     path = os.getcwd()
     agent_hyperparameter = load_agent(id_agent, path)
     agent_type = agent_hyperparameter["agent_type"]
-    chkpt_dir = path + f"/trained_agents/{agent_type}/{id_agent}/{coin}"
+    chkpt_dir = path + f"/trained_agents/{agent_type}/{id_agent}_{id_train_env}_{id_obs_type}/{coin}"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     obs_size = env.observation_space.shape[0] * env.observation_space.shape[1]
     n_actions = env.action_space.n
@@ -177,15 +177,14 @@ def select_agent(id_agent,env,coin,id_train_env,id_obs_type,):
 def train_agent(coin, agent, env, n_episodes, checkpoint_freq):
     agent.train(env, coin, n_episodes = n_episodes, checkpoint_freq = checkpoint_freq)
 
-def evaluate_agent(coin, agent, env, id_agent, env_id,obs_type_id, n_episodes, checkpoint_freq):
-    #crea cartella per il plot
-    save_fig_path = os.getcwd() + f"/plot/{id_agent}/{env_id}/{coin}/{obs_type_id}"
+def evaluate_agent(coin, agent, env_eval, id_agent, env_eval_id, obs_type_id, env_train_id, n_episodes, checkpoint_freq):    #crea cartella per il plot
+    save_fig_path = os.getcwd() + f"/plot/{id_agent}_{env_train_id}_{obs_type_id}/{coin}/{env_eval_id}"
     if not os.path.exists(save_fig_path):
         os.makedirs(save_fig_path)
     #iterativamente esegue la valutazione per tutti i checkpoint creati in fase di train
     for episode in range(0, n_episodes, checkpoint_freq):
         agent.load_models(episode)
-        agent.evaluate(env, coin, episode, env_id=env_id).render_all(episode, savepath=save_fig_path)
+        agent.evaluate(env_eval, coin, episode, env_id=env_eval_id).render_all(episode, savepath=save_fig_path)
 
 #RICORDA 1: train_and_eval sovrascrive
 #               tutte le cartelle di train con agent_id e train_id uguali
@@ -258,7 +257,7 @@ def eval_agent_on_env(agent_id, env_train_id,obs_type_id, env_eval_ids, coin, n_
 
     for env_eval_id in env_eval_ids:
         env_eval = select_env(env_eval_id, obs_type_id, coin)
-        evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id,obs_type_id, n_episodes, checkpoint_freq)
+        evaluate_agent(coin, agent, env_eval, agent_id, env_eval_id, obs_type_id, env_train_id, n_episodes, checkpoint_freq)
 
 
 # hyperparameter_dummy = {

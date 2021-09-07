@@ -3,7 +3,7 @@ import pandas as pd
 from agents.Dqn_agent import DQNAgent
 from agents.DDqn_agent import DDQNAgent
 from agents.Duelling_DDqn_agent import DuelingDDQNAgent
-from agents.RDQN_agent import DRQNAgent
+from agents.DRQN_agent import DRQNAgent
 import os
 import torch
 from env.ShortLongCTE_no_invalid import CryptoTradingEnv
