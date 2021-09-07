@@ -1,4 +1,5 @@
 
 venv/
-
+.gitignore
 .idea/
+note.txt
