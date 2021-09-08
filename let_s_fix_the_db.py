@@ -1,10 +1,10 @@
 import pandas as pd
 
-df = pd.read_csv("data/Binance_BTCUSDT_minute.csv", skiprows=1)
+df = pd.read_csv("data/Binance_ETHUSDT_minute.csv", skiprows=1)
 
 df = df.rename(columns={'Volume USDT': 'volume'})
 df = df.iloc[::-1]
-df = df.drop(columns=['symbol', f"Volume BTC"])
+df = df.drop(columns=['symbol', f"Volume ETH"])
 df['date'] = pd.to_datetime(df['unix'], unit='ms')
 df = df.set_index('date')
 #print(df)
@@ -19,3 +19,4 @@ df_reindexed = df_reindexed.reindex(data_index)
 pd.set_option('display.max_rows', 1000)
 
 print(df_reindexed[df_reindexed['close'].isna()])
+
