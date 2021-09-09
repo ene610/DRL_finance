@@ -296,3 +296,7 @@ def eval_agent_on_env(agent_id, env_train_id,obs_type_id, env_eval_ids, coin, n_
 # #insert_obs_type_row(obs_type_dummy, path)
 # env = load_env(31,1,path)
 # print(env)
+# for coin in ["BTC", "ETH", "ADA"]:
+#     start_btc = 302081 - 2
+#     end_btc = start_btc + 1440
+#     print(load_data(coin)[start_btc:end_btc].head())
