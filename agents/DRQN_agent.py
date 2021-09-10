@@ -195,7 +195,7 @@ class DRQNAgent(object):
     def __init__(self, gamma, epsilon, lr, n_actions, input_dims,
                  mem_size, batch_size, id_agent,id_train_env,id_obs_type, eps_min=0.01, eps_dec=5e-7,
                  replace=1000, chkpt_dir='tmp/dqn', random_update=True,
-                 lookup_step=10, max_epi_len=3000, device="cpu", seed=1, n_neurons_layer=512, dropout=0.1):
+                 lookup_step=10, max_epi_len=3000, device="cuda", seed=1, n_neurons_layer=512, dropout=0.1):
         self.gamma = gamma
         self.epsilon = epsilon
         self.lr = lr
@@ -283,6 +283,8 @@ class DRQNAgent(object):
 
     def learn(self):
 
+        self.replace_target_network()
+
         q_net = self.q_eval
         target_q_net = self.q_next
         episode_memory = self.episode_memory
@@ -338,7 +340,6 @@ class DRQNAgent(object):
         loss.backward()
         optimizer.step()
 
-        self.decrement_epsilon()
         return loss.item()
 
 
@@ -409,11 +410,12 @@ class DRQNAgent(object):
                 n_steps += 1
                 steps += 1
 
-                if episode > self.batch_size:
-                    loss_iteration = self.learn()
-                    if loss_iteration != None:
-                        loss += loss_iteration
-
+                if steps % self.batch_size == 0:
+                    if episode > self.batch_size:
+                        loss_iteration = self.learn()
+                        if loss_iteration != None:
+                            loss += loss_iteration
+            self.decrement_epsilon()
 
             self.store_episode()
             self.reset_buffer()
