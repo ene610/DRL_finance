@@ -6,49 +6,124 @@ import numpy as np
 import os
 import shutil
 from torch.utils.tensorboard import SummaryWriter
+from torch.autograd import Variable
 
 #prima si puliscono
     #iper fuori
     #var non usate cancella
 #random seed
 
+# Source 1: https://github.com/rlcode/per/blob/master/prioritized_memory.py
+# Source 2: https://github.com/rlcode/per/blob/master/SumTree.py
+import random
+import numpy as np
 
-class ReplayBuffer(object):
-    def __init__(self, max_size, input_shape, n_actions, seed):
-        self.mem_size = max_size
-        self.mem_cntr = 0
-        self.seed = seed
-        self.state_memory = np.zeros((self.mem_size, *input_shape),
-                                     dtype=np.float32)
-        self.new_state_memory = np.zeros((self.mem_size, *input_shape),
-                                         dtype=np.float32)
+class Memory:  # stored as ( s, a, r, s_ ) in SumTree
+    e = 0.01
+    a = 0.8
+    beta = 0.3
+    beta_increment_per_sampling = 0.0005
 
-        self.action_memory = np.zeros(self.mem_size, dtype=np.int64)
-        self.reward_memory = np.zeros(self.mem_size, dtype=np.float32)
-        self.terminal_memory = np.zeros(self.mem_size, dtype=np.bool)
-        self.seed = seed
-        self.rng = np.random.default_rng(self.seed)
+    def __init__(self, capacity):
+        self.tree = SumTree(capacity)
+        self.capacity = capacity
 
-    def store_transition(self, state, action, reward, state_, done):
-        index = self.mem_cntr % self.mem_size
-        self.state_memory[index] = state
-        self.new_state_memory[index] = state_
-        self.action_memory[index] = action
-        self.reward_memory[index] = reward
-        self.terminal_memory[index] = done
-        self.mem_cntr += 1
+    def _get_priority(self, error):
+        return (np.abs(error) + self.e) ** self.a
 
-    def sample_buffer(self, batch_size):
-        max_mem = min(self.mem_cntr, self.mem_size)
-        batch = self.rng.choice(max_mem, batch_size, replace=False)
-        states = self.state_memory[batch]
-        actions = self.action_memory[batch]
-        rewards = self.reward_memory[batch]
-        states_ = self.new_state_memory[batch]
-        terminal = self.terminal_memory[batch]
+    def add(self, error, sample):
+        p = self._get_priority(error)
+        self.tree.add(p, sample)
 
-        return states, actions, rewards, states_, terminal
+    def sample(self, n):
+        batch = []
+        idxs = []
+        segment = self.tree.total() / n
+        priorities = []
 
+        self.beta = np.min([1., self.beta + self.beta_increment_per_sampling])
+
+        for i in range(n):
+            a = segment * i
+            b = segment * (i + 1)
+
+            s = random.uniform(a, b)
+            (idx, p, data) = self.tree.get(s)
+            priorities.append(p)
+            batch.append(data)
+            idxs.append(idx)
+
+        sampling_probabilities = priorities / self.tree.total()
+        is_weight = np.power(self.tree.n_entries * sampling_probabilities, -self.beta)
+        is_weight /= is_weight.max()
+
+        return batch, idxs, is_weight
+
+    def update(self, idx, error):
+        p = self._get_priority(error)
+        self.tree.update(idx, p)
+
+class SumTree:
+    write = 0
+
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.tree = np.zeros(2 * capacity - 1)
+        self.data = np.zeros(capacity, dtype=object)
+        self.n_entries = 0
+
+    # update to the root node
+    def _propagate(self, idx, change):
+        parent = (idx - 1) // 2
+
+        self.tree[parent] += change
+
+        if parent != 0:
+            self._propagate(parent, change)
+
+    # find sample on leaf node
+    def _retrieve(self, idx, s):
+        left = 2 * idx + 1
+        right = left + 1
+
+        if left >= len(self.tree):
+            return idx
+
+        if s <= self.tree[left]:
+            return self._retrieve(left, s)
+        else:
+            return self._retrieve(right, s - self.tree[left])
+
+    def total(self):
+        return self.tree[0]
+
+    # store priority and sample
+    def add(self, p, data):
+        idx = self.write + self.capacity - 1
+
+        self.data[self.write] = data
+        self.update(idx, p)
+
+        self.write += 1
+        if self.write >= self.capacity:
+            self.write = 0
+
+        if self.n_entries < self.capacity:
+            self.n_entries += 1
+
+    # update priority
+    def update(self, idx, p):
+        change = p - self.tree[idx]
+
+        self.tree[idx] = p
+        self._propagate(idx, change)
+
+    # get priority and sample
+    def get(self, s):
+        idx = self._retrieve(0, s)
+        dataIdx = idx - self.capacity + 1
+
+        return (idx, self.tree[idx], self.data[dataIdx])
 
 class DeepQNetwork(nn.Module):
     def __init__(self, lr, n_actions, input_dims, n_neurons_layer = 512, dropout = 0.1, device="cpu"):
@@ -130,7 +205,7 @@ class DQNAgent(object):
 
         #/trained_agent/nome_agent/coin/episodio
         #{fuori                        }{interno}
-        self.memory = ReplayBuffer(mem_size, (input_dims,), n_actions, seed=self.seed)
+        self.memory = Memory(mem_size)
 
         self.q_eval = DeepQNetwork(self.lr,
                                     self.n_actions,
@@ -157,8 +232,20 @@ class DQNAgent(object):
 
         return action
 
-    def store_transition(self, state, action, reward, state_, done):
-        self.memory.store_transition(state, action, reward, state_, done)
+    def store_transition(self, state, action, reward, next_state, done):
+
+        target = self.q_eval(Variable(T.FloatTensor(state))).data
+        old_val = target[0][action]
+        target_val = self.q_next(Variable(T.FloatTensor(next_state))).data
+        if done:
+            target[0][action] = reward
+        else:
+            target[0][action] = reward + self.gamma * T.max(target_val)
+
+        error = abs(old_val - target[0][action])
+
+        self.memory.add(error, (state, action, reward, next_state, done))
+
 
     def sample_memory(self):
         state, action, reward, new_state, done = \
@@ -189,21 +276,46 @@ class DQNAgent(object):
         self.q_next.load_checkpoint(self.chkpt_dir + f"/episode{episode}/q_next")
 
     def learn(self):
-        if self.memory.mem_cntr < self.batch_size:
+        if self.memory.tree.n_entries < self.batch_size:
             return
 
         self.q_eval.optimizer.zero_grad()
 
         self.replace_target_network()
 
-        states, actions, rewards, states_, dones = self.sample_memory()
-        indices = np.arange(self.batch_size)
+        #states, actions, rewards, states_, dones = self.sample_memory()
+        #indices = np.arange(self.batch_size)
 
+        mini_batch, idxs, is_weights = self.memory.sample(self.batch_size)
+        #???
+        mini_batch = np.array(mini_batch).transpose()
+        #???
+        np_states =  np.array([e for e in mini_batch[0]],dtype=np.float32)
+        np_actions = np.array([e for e in mini_batch[1]],dtype=np.int64)
+        np_rewards = np.array([e for e in mini_batch[2]],dtype=np.float32)
+        np_new_states = np.array([e for e in mini_batch[3]],dtype=np.float32)
+        np_terminals = np.array([e for e in mini_batch[4]],dtype=np.bool)
+
+        states = T.from_numpy(np_states).to(self.q_eval.device)
+        actions = T.from_numpy(np_actions).to(self.q_eval.device)
+        rewards = T.from_numpy(np_rewards).to(self.q_eval.device)
+        states_ = T.from_numpy(np_new_states).to(self.q_eval.device)
+        dones = T.from_numpy(np_terminals).to(self.q_eval.device)
+
+        indices = np.arange(self.batch_size)
         q_pred = self.q_eval.forward(states)[indices, actions]
         q_next = self.q_next.forward(states_).max(dim=1)[0]
 
         q_next[dones] = 0.0
         q_target = rewards + self.gamma * q_next
+        q_pred.to(self.q_eval.device)
+        q_target.to(self.q_eval.device)
+        errors = T.abs(q_pred - q_target).data.cpu().numpy()
+
+        # update priority
+        for i in range(self.batch_size):
+            idx = idxs[i]
+            self.memory.update(idx, errors[i])
 
         loss = self.q_eval.loss(q_target, q_pred).to(self.q_eval.device)
         loss.backward()
@@ -222,6 +334,7 @@ class DQNAgent(object):
         best_score = -np.inf
         load_checkpoint = False
         obs_size = self.input_dims
+
         n_steps = 0
         scores, eps_history, steps_array = [], [], []
 
@@ -323,5 +436,8 @@ class DQNAgent(object):
 #                 )
 
 # agent.train(env,n_episodes=100, checkpoint_freq=10)
+
+
+
 
 
