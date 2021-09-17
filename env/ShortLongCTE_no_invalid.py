@@ -156,7 +156,10 @@ class CryptoTradingEnv(gym.Env):
         pd_returns_list = pd.DataFrame(returns_list)
         sharpe = qs.stats.sharpe(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)[0]
         if math.isnan(sharpe):
-            sharpe = 0
+            if ((pd_returns_list[0] - pd_returns_list[-1]) > 0):
+                sharpe = 0.1
+            else:
+                sharpe = -0.1
         return sharpe
 
     def sortino_calculator_quantstats(self):
@@ -164,9 +167,14 @@ class CryptoTradingEnv(gym.Env):
         returns_list = list(self.returns_balance.values())[key_list.index(self._open_position_tick):]
         pd_returns_list = pd.DataFrame(returns_list)
         sortino = qs.stats.sortino(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)[0]
-        if math.isnan(sortino):
-            sortino = 0
-        return sortino
+
+        if math.isnan(sortino) or math.isinf(sortino):
+            if((pd_returns_list[0] - pd_returns_list[-1]) > 0):
+                sortino = 0.1
+            else:
+                sortino = -0.1
+
+        return sortino / math.sqrt(2)
 
     def sortino_calculator_total_quantstats(self):
         returns_list = list(self.returns_balance.values())
@@ -174,7 +182,7 @@ class CryptoTradingEnv(gym.Env):
         sortino = qs.stats.sortino(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)[0]
         if math.isnan(sortino):
             sortino = 0
-        return sortino
+        return sortino / math.sqrt(2)
 
     def profit_calculator(self):
         if self.trade_type == "HoldingLong":
@@ -548,7 +556,6 @@ class CryptoTradingEnv(gym.Env):
 
         prices = self.df['close']
         prices = prices[self.frame_bound[0] - self.window_size: self.frame_bound[1]]
-
 
         signal_features = Indicators.sma_indicator(self.df)
         signal_features = Indicators.macd_indicator(signal_features)
