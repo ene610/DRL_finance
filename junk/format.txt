@@ -1,25 +1,11 @@
-With a Deep Reinforcement Learning agent, consistently defeating even the best of human adversaries in these games, and with many other similar Deep Reinforcement Learning algorithms consistently defeating their respective human adversaries in at least 49 other gaming instances as claimed in multiple comparative studies using standardized games/environments, we could assume that the advancements in the area of “Deep Reinforcement Learning” are leading us towards the concept of “General Artificial Intelligence” as described in the previous sectionTaking our theme of games again for this discussion so that all the readers could relate.
- Ever since ’80s many could have grown up playing video games like “Mario”, then “Contra”, and then could have explored some popular FPS (First Person Shooter Categories) games like “Half-Life”, followed by “Arcade” genre games like “Counter-Strike”, and now addicted to the more popular “Battle-Royale” genre of games like “PUBG” and “Fortnite”.
- It may take someone a day or may be a week to gain a decent level of proficiency in any of these games, even while moving from one game to another, and at times even addicted to more than a single game simultaneously.
- As humans, even for the avid game enthusiasts, we do a lot of things besides playing games as well, and we could gain increasingly improved proficiency at all of them with the same “mind” and the “Intelligence” that we have.
- This concept where a single architecture and model of intelligence could be used to learn different seemingly even unrelated problems is called “General Artificial Intelligence”.
- Until recently the Reinforcement Learning agents were handcrafted and tuned to perform individual and specific tasks.
- For example, we could have various scholars experimenting with innovative agents and mechanisms to get better in the game of “Backgammon”.
- Recently with AI gym and some other initiatives opening their platforms to Reinforcement Learning academician and enthusiast to work on standardized problems (in the form of exposed standard environments) and compare their results and enhancements for these problems with the community, there have been several papers and informal competitions where researchers and academicians try to propose innovative algorithms and other enhancements that could generate better scores/rewards in a specific environment of Reinforcement Learning.
- So essentially, from one evolution of agents to another, the Reinforcement Learning agents and algorithms that empower them keeps getting better in doing a particular task.
- These specific tasks may range from solving a particular environment of the “AI Gym” like playing “Backgammon” to balancing g “Cart-Pole” and others.
- But still, the concept of “General Artificial Intelligence” has remained evasive.
- But things are changing now with the evolution of “Deep Reinforcement Learning”.
- As we discussed in an earlier chapter, “Deep Learning” has the capability of intelligently self-extracting important features from the data, without requiring human/SME involvement in handcrafting domain specific features for them.
- When we combine this ability with the self-acting capability of the Reinforcement Learning, we come closer to realizing the idea of “General Artificial Intelligence” Researchers at Google’s “Deep Mind” (“Deep Mind” was acquired by Google sometime back) developed this algorithm called as the Deep Q Network that we will be discussing in detail in this chapter.
- Researchers at Deep Mind combined the Q-Learning algorithm in Reinforcement Learning with the ideas in Deep Learning to enable the concept of Deep Q Networks (DQN).
- A single DQN program could teach itself how to play 49 different games from the “Atari” titles (“Atari” used to be a very popular gaming console in the era of ’80s and beyond.
- Atari had a lot of game titles with graphical interfaces.
-) and excel at most of them simultaneously, even defeating the best of human adversary’s scores for most of these titles as shown in the Fig.
- 8.
-1.
- Algorithms similar to the DQN also powered “Deep Mind”s’ famous “AlphaGo” program.
- AlphaGo was the very first program that for the first time consistently and repeatedly defeated the best of human adversaries at the game of “Go”.
- For the readers who are unfamiliar with the game of “Go”, if they understand “Chess” then just for the sake of comparison, if they consider “Chess” as a game that challenges human intelligence, planning and strategizing capabilities to a significant level, then the game of “Go” is considered to take these challenges many notches higher.
- It is known that the number of possible moves in the game of “Go” is even more that the number of atoms in the entire universe, and hence it requires the best of human intelligence, thinking and planning capabilities to excel in this game.
- With a Deep Reinforcement Learning agent, consistently defeating even the best of human adversaries in these games, and with many other similar Deep Reinforcement Learning algorithms consistently defeating their respective human adversaries in at least 49 other gaming instances as claimed in multiple comparative studies using standardized games/environments, we could assume that the advancements in the area of “Deep Reinforcement Learning” are leading us towards the concept of “General Artificial Intelligence” as described in the previous section 
+The maximize operator in formula (3) and (4) use the same Q-values to select and evaluate the greedy action.
+ The consistency in action selection and action assessment makes it more prone to select the overestimated values as the es- timates of true action values.
+ To prevent this, Double Q- learning[3] decouples the action selection from action evalu- ation.
+ The Double Q-learning algorithm has two Q-networks separately with weights θA and θB.
+ To obtain the update target at each step, it randomly choose one set of weights to determine the greedy policy in the given state st+1 and let the remaining set of weights to determine its corresponding action value.
+ Accordingly, the target of Double Q-learning to update Q-network A can be written as follows yQA t = rt+1 + γQ(st+1, arg maxa′Q(st+1, a ′; θA); θB).
+ (5) Formula (5) shows that we are still using the current online Q-network A to choose the greedy policies, and then us- ing Q-network B to estimate the value of the corresponding greedy policies.
+ Conversely, if we want to update the param- eters of Q-network B, then swap the roles of Q-network A and Q-network B.
+ So the update targets for the second set of weights θB can be written as following yQB t = rt+1 + γQ(st+1, arg maxa′Q(st+1, a ′; θB); θA).
+ (6) Double Q-learning stores two Q functions, and each Q func- tion is updated with Q-values from the remaining Q function for the next state.
+ 

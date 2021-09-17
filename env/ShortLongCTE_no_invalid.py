@@ -156,7 +156,7 @@ class CryptoTradingEnv(gym.Env):
         pd_returns_list = pd.DataFrame(returns_list)
         sharpe = qs.stats.sharpe(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)[0]
         if math.isnan(sharpe):
-            if ((pd_returns_list[0] - pd_returns_list[-1]) > 0):
+            if ((returns_list[0] - returns_list[-1]) > 0):
                 sharpe = 0.1
             else:
                 sharpe = -0.1
@@ -169,7 +169,7 @@ class CryptoTradingEnv(gym.Env):
         sortino = qs.stats.sortino(pd_returns_list, rf=0., periods=252, annualize=False, trading_year_days=252)[0]
 
         if math.isnan(sortino) or math.isinf(sortino):
-            if((pd_returns_list[0] - pd_returns_list[-1]) > 0):
+            if((returns_list[0] - returns_list[-1]) > 0):
                 sortino = 0.1
             else:
                 sortino = -0.1

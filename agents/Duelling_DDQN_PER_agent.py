@@ -10,10 +10,10 @@ from gym import wrappers
 import os
 import shutil
 from torch.utils.tensorboard import SummaryWriter
-import heapq
-from itertools import count
+
 import random
 from torch.autograd import Variable
+
 
 class Memory:  # stored as ( s, a, r, s_ ) in SumTree
     e = 0.01
@@ -59,6 +59,7 @@ class Memory:  # stored as ( s, a, r, s_ ) in SumTree
     def update(self, idx, error):
         p = self._get_priority(error)
         self.tree.update(idx, p)
+
 
 class SumTree:
     write = 0
@@ -162,8 +163,8 @@ class DuelingDeepQNetwork(nn.Module):
         self.to(self.device)
 
     def forward(self, state):
-        #flat1 = F.relu(self.fc1(state))
-        #flat2 = F.relu(self.fc2(flat1))
+        # flat1 = F.relu(self.fc1(state))
+        # flat2 = F.relu(self.fc2(flat1))
 
         x = self.dropout1(F.leaky_relu(self.fc1(state)))
         x = self.dropout2(F.leaky_relu(self.fc2(x)))
@@ -197,7 +198,7 @@ class DuelingDDQNAgent(object):
         self.eps_min = eps_min
         self.eps_dec = eps_dec
         self.replace_target_cnt = replace
-        #self.chkpt_dir = "//trained_agents//DuelingDDQNAgent//BTC//"
+        # self.chkpt_dir = "//trained_agents//DuelingDDQNAgent//BTC//"
         self.chkpt_dir = chkpt_dir
         self.action_space = [i for i in range(n_actions)]
         self.learn_step_counter = 0
@@ -217,18 +218,24 @@ class DuelingDDQNAgent(object):
                                           self.n_actions,
                                           input_dims=self.input_dims,
                                           device=device,
-                                          n_neurons_layer = n_neurons_layer,
-                                          dropout = dropout)
+                                          n_neurons_layer=n_neurons_layer,
+                                          dropout=dropout)
 
     def store_transition(self, state, action, reward, next_state, done):
 
-        state = np.array([state], copy=False, dtype=np.float32)
-        state_tensor = T.tensor(state).to(self.q_eval.device)
+        # state = np.array([state], copy=False, dtype=np.float32)
+        np_state = np.array(state, dtype=np.float32)
+        np_action = np.array(action, dtype=np.int64)
+        np_reward = np.array(reward, dtype=np.float32)
+        np_new_state = np.array(next_state, dtype=np.float32)
+        np_terminal = np.array(done, dtype=np.bool)
+
+        state_tensor = T.tensor(np_state).to(self.q_eval.device)
         _, advantages = self.q_eval.forward(state_tensor)
-        old_val = advantages[0][action]
+        old_val = advantages[action]
 
-
-        _ , target_val = self.q_next(Variable(T.FloatTensor(next_state).to(self.q_eval.device)))
+        next_state_tensor = T.FloatTensor(np_new_state).to(self.q_eval.device)
+        _, target_val = self.q_next(next_state_tensor)
 
         if done:
             next_val = reward
@@ -237,20 +244,7 @@ class DuelingDDQNAgent(object):
 
         error = abs(old_val - next_val).cpu().detach().numpy()
 
-        self.memory.add(error, (state, action, reward, next_state, done))
-
-
-    def sample_memory(self):
-        state, action, reward, new_state, done = \
-            self.memory.sample_buffer(self.batch_size)
-
-        states = T.tensor(state).to(self.q_eval.device)
-        rewards = T.tensor(reward).to(self.q_eval.device)
-        dones = T.tensor(done).to(self.q_eval.device)
-        actions = T.tensor(action).to(self.q_eval.device)
-        states_ = T.tensor(new_state).to(self.q_eval.device)
-
-        return states, actions, rewards, states_, dones
+        self.memory.add(error, (np_state, np_action, np_reward, np_new_state, np_terminal))
 
     def choose_action(self, observation):
         if np.random.random() > self.epsilon:
@@ -273,28 +267,6 @@ class DuelingDDQNAgent(object):
         self.epsilon = self.epsilon - self.eps_dec \
             if self.epsilon > self.eps_min else self.eps_min
 
-    def calculate_TD_error(self, state, action, reward, state_, terminal):
-
-        # self.q_eval.optimizer.zero_grad()
-        state = T.tensor(state).to(self.q_eval.device).float()
-        # print(state.dtype)
-        state_ = T.tensor(state_).to(self.q_eval.device).float()
-        reward = T.tensor(reward).to(self.q_eval.device).float()
-        q_pred = self.q_eval.forward(state)[action]
-
-        q_next = self.q_next.forward(state_)
-        q_next_max = q_next.max()
-        # print(q_next,q_next_max)
-        # input()
-        if terminal:
-            q_target = reward
-        else:
-            q_target = reward + self.gamma * q_next_max
-        # print(type(q_target),type(q_pred))
-        # input()
-        error = self.q_eval.loss(q_target, q_pred).to(self.q_eval.device)
-        return error
-
     def learn(self):
         if self.memory.tree.n_entries < self.batch_size:
             return
@@ -302,11 +274,9 @@ class DuelingDDQNAgent(object):
         self.q_eval.optimizer.zero_grad()
 
         self.replace_target_network()
-
         mini_batch, idxs, is_weights = self.memory.sample(self.batch_size)
-        # ???
         mini_batch = np.array(mini_batch).transpose()
-        # ???
+
         np_states = np.array([e for e in mini_batch[0]], dtype=np.float32)
         np_actions = np.array([e for e in mini_batch[1]], dtype=np.int64)
         np_rewards = np.array([e for e in mini_batch[2]], dtype=np.float32)
@@ -338,7 +308,7 @@ class DuelingDDQNAgent(object):
 
         q_target = rewards + self.gamma * q_next[indices, max_actions]
 
-        errors = T.abs(q_pred - q_target).data.cpu().numpy()
+        errors = T.abs(q_pred - q_target).data.cpu().detach().numpy()
 
         # update priority
         for i in range(self.batch_size):
@@ -360,7 +330,6 @@ class DuelingDDQNAgent(object):
     def load_models(self, episode):
         self.q_eval.load_checkpoint(self.chkpt_dir + f"/episode{episode}/q_eval")
         self.q_next.load_checkpoint(self.chkpt_dir + f"/episode{episode}/q_next")
-
 
     def convert_obs(self, obs, obs_size):
         return obs.reshape(obs_size, )
@@ -387,10 +356,7 @@ class DuelingDDQNAgent(object):
                 observation_, reward, done, info = env.step(action)
                 observation_ = self.convert_obs(observation_, obs_size)
                 score += reward
-                #self.store_transition(observation, action, reward, observation_, done)
-                error = reward
                 self.store_transition(observation, action, reward, observation_, done)
-
                 loss_iteration = self.learn()
                 if loss_iteration != None:
                     loss += loss_iteration
@@ -398,7 +364,6 @@ class DuelingDDQNAgent(object):
                 observation = observation_
                 n_steps += 1
                 steps += 1
-
 
             scores.append(score)
             steps_array.append(n_steps)
